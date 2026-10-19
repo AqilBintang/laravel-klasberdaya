@@ -40,6 +40,11 @@ if [ ! -f "$LARAVEL_DIR/.env" ]; then
     echo "    cp $LARAVEL_DIR/.env.production $LARAVEL_DIR/.env"
     echo "    nano $LARAVEL_DIR/.env"
     echo ""
+    echo "  Pastikan variabel berikut sudah diisi:"
+    echo "    DB_DATABASE, DB_USERNAME, DB_PASSWORD"
+    echo "    SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD"
+    echo "    ADMIN_EMAIL, ADMIN_PASSWORD"
+    echo ""
     echo "  Setelah selesai, jalankan ulang script ini."
     exit 1
 fi

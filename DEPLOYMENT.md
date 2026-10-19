@@ -140,6 +140,12 @@ DB_DATABASE=namauser_klasberdaya
 DB_USERNAME=namauser_klasberdaya
 DB_PASSWORD=password_database_kamu
 
+SUPER_ADMIN_EMAIL=superadmin@klasberdaya.com
+SUPER_ADMIN_PASSWORD=isi_password_kuat_disini
+
+ADMIN_EMAIL=admin@klasberdaya.com
+ADMIN_PASSWORD=isi_password_kuat_disini
+
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
 SESSION_DOMAIN=klasberdaya.com
