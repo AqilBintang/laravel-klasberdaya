@@ -30,7 +30,27 @@ fi
 
 # ── Langkah 2: Install/update Composer dependencies ──────────────────────────
 echo "[2/7] Install Composer dependencies (production)..."
-composer install --optimize-autoloader --no-dev --no-interaction
+
+# Deteksi path composer (shared hosting sering beda lokasi)
+if command -v composer &>/dev/null; then
+    COMPOSER_CMD="composer"
+elif [ -f "$HOME/bin/composer" ]; then
+    COMPOSER_CMD="php $HOME/bin/composer"
+elif [ -f "$HOME/composer.phar" ]; then
+    COMPOSER_CMD="php $HOME/composer.phar"
+elif [ -f "/usr/local/bin/composer" ]; then
+    COMPOSER_CMD="/usr/local/bin/composer"
+else
+    echo "  ❌ Composer tidak ditemukan!"
+    echo "  Install composer dulu:"
+    echo "    php -r \"copy('https://getcomposer.org/installer', 'composer-setup.php');\""
+    echo "    php composer-setup.php"
+    echo "    mkdir -p ~/bin && mv composer.phar ~/bin/composer"
+    echo "  Lalu jalankan ulang deploy.sh"
+    exit 1
+fi
+
+$COMPOSER_CMD install --optimize-autoloader --no-dev --no-interaction
 
 # ── Langkah 3: Setup .env jika belum ada ─────────────────────────────────────
 echo "[3/7] Cek file .env..."
