@@ -48,23 +48,82 @@
             </div>
 
             {{-- Banner — hanya lg ke atas --}}
-            @if(!empty($banner['slides']))
+            @php $bannerSlides = $banner['slides'] ?? []; @endphp
             <div class="hidden lg:block w-full lg:w-[480px] shrink-0">
-                <div class="relative overflow-hidden rounded-2xl" id="banner-slider">
-                    @foreach ($banner['slides'] as $i => $slide)
-                        @if(!empty($slide['imageUrl']))
-                        <div class="banner-slide {{ $i === 0 ? '' : 'hidden' }} transition-opacity duration-500">
-                            <img
-                                src="{{ $slide['imageUrl'] }}"
-                                alt="{{ $slide['alt'] ?? '' }}"
-                                class="w-full h-auto rounded-2xl object-cover"
+                <div
+                    class="relative w-full overflow-hidden rounded-2xl shadow-md"
+                    id="info-banner"
+                    aria-label="Banner informatif"
+                    data-autoplay="4000"
+                >
+                    {{-- Slide area --}}
+                    <div class="relative w-full bg-gray-200" style="height:220px;">
+                        @forelse ($bannerSlides as $i => $slide)
+                            <div
+                                class="banner-slide absolute inset-0 transition-opacity duration-500 {{ $i === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0' }}"
+                                data-index="{{ $i }}"
                             >
-                        </div>
-                        @endif
-                    @endforeach
+                                @if(!empty($slide['imageUrl']))
+                                    <img
+                                        src="{{ $slide['imageUrl'] }}"
+                                        alt="{{ $slide['alt'] ?? '' }}"
+                                        class="w-full h-full object-cover"
+                                    >
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300">
+                                        <span class="text-sm text-gray-400 select-none">
+                                            Banner {{ $i + 1 }} — banner info
+                                        </span>
+                                    </div>
+                                @endif
+                            </div>
+                        @empty
+                            {{-- Tidak ada slide sama sekali: tampilkan placeholder --}}
+                            <div class="absolute inset-0 flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300">
+                                <span class="text-sm text-gray-400 select-none">Banner info</span>
+                            </div>
+                        @endforelse
+                    </div>
+
+                    @if(count($bannerSlides) > 1)
+                    {{-- Tombol Prev --}}
+                    <button
+                        type="button"
+                        id="banner-prev"
+                        class="absolute left-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 z-20"
+                        aria-label="Slide sebelumnya"
+                    >
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                            <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+
+                    {{-- Tombol Next --}}
+                    <button
+                        type="button"
+                        id="banner-next"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 z-20"
+                        aria-label="Slide berikutnya"
+                    >
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                            <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+
+                    {{-- Dot indicators --}}
+                    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20" id="banner-dots">
+                        @foreach ($bannerSlides as $i => $slide)
+                            <button
+                                type="button"
+                                class="banner-dot h-1.5 rounded-full transition-all duration-300 {{ $i === 0 ? 'w-5 bg-white' : 'w-1.5 bg-white/60' }}"
+                                data-index="{{ $i }}"
+                                aria-label="Pergi ke slide {{ $i + 1 }}"
+                            ></button>
+                        @endforeach
+                    </div>
+                    @endif
                 </div>
             </div>
-            @endif
 
         </div>
     </section>
@@ -739,6 +798,59 @@
             }).join('');
         }
     }
+
+    // ── InfoBanner slider ─────────────────────────────────────────────────
+    // Migrasi dari: src/components/shared/ui/InfoBanner.tsx
+    (function () {
+        var banner   = document.getElementById('info-banner');
+        if (!banner) return;
+
+        var slides   = banner.querySelectorAll('.banner-slide');
+        var dots     = banner.querySelectorAll('.banner-dot');
+        var prevBtn  = document.getElementById('banner-prev');
+        var nextBtn  = document.getElementById('banner-next');
+        var total    = slides.length;
+        if (total <= 1) return;
+
+        var current  = 0;
+        var paused   = false;
+        var interval = parseInt(banner.dataset.autoplay || '4000', 10);
+        var timer    = null;
+
+        function goTo(idx) {
+            slides[current].classList.remove('opacity-100', 'z-10');
+            slides[current].classList.add('opacity-0', 'z-0');
+            if (dots[current]) {
+                dots[current].classList.remove('w-5', 'bg-white');
+                dots[current].classList.add('w-1.5', 'bg-white/60');
+            }
+            current = (idx + total) % total;
+            slides[current].classList.remove('opacity-0', 'z-0');
+            slides[current].classList.add('opacity-100', 'z-10');
+            if (dots[current]) {
+                dots[current].classList.remove('w-1.5', 'bg-white/60');
+                dots[current].classList.add('w-5', 'bg-white');
+            }
+        }
+
+        function startTimer() {
+            timer = setInterval(function () {
+                if (!paused) goTo(current + 1);
+            }, interval);
+        }
+
+        if (prevBtn) prevBtn.addEventListener('click', function () { goTo(current - 1); });
+        if (nextBtn) nextBtn.addEventListener('click', function () { goTo(current + 1); });
+
+        dots.forEach(function (dot) {
+            dot.addEventListener('click', function () { goTo(parseInt(dot.dataset.index, 10)); });
+        });
+
+        banner.addEventListener('mouseenter', function () { paused = true; });
+        banner.addEventListener('mouseleave', function () { paused = false; });
+
+        startTimer();
+    })();
 
     // ── Inisialisasi chart awal ────────────────────────────────────────────
     // Script ini berada di akhir <body> (via @stack('scripts')), DOM sudah
