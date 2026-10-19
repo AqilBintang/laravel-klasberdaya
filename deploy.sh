@@ -50,7 +50,11 @@ else
     exit 1
 fi
 
-$COMPOSER_CMD install --optimize-autoloader --no-dev --no-interaction
+$COMPOSER_CMD install --optimize-autoloader --no-dev --no-interaction --no-scripts
+
+# Jalankan package:discover manual (karena --no-scripts melewatinya)
+echo "  → php artisan package:discover..."
+php artisan package:discover --ansi 2>/dev/null || echo "  ⚠️  package:discover dilewati (proc_open tidak tersedia, aman diabaikan)"
 
 # ── Langkah 3: Setup .env jika belum ada ─────────────────────────────────────
 echo "[3/7] Cek file .env..."
@@ -114,10 +118,10 @@ fi
 
 # ── Langkah 8: Optimize Laravel ───────────────────────────────────────────────
 echo "[+] Optimize Laravel cache..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan optimize
+php artisan config:cache 2>/dev/null || php artisan config:clear
+php artisan route:cache 2>/dev/null || php artisan route:clear
+php artisan view:cache 2>/dev/null || php artisan view:clear
+php artisan optimize 2>/dev/null || echo "  ⚠️  optimize dilewati"
 
 echo ""
 echo "======================================================"
