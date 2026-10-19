@@ -7,7 +7,7 @@
 set -e  # Hentikan jika ada error
 
 # ─── KONFIGURASI — sesuaikan ─────────────────────────────────────────────────
-LARAVEL_DIR="$HOME/laravel_klasberdaya"
+LARAVEL_DIR="$HOME/klasberdaya"
 PUBLIC_HTML="$HOME/public_html"
 REPO_URL="https://github.com/AqilBintang/laravel-klasberdaya.git"
 BRANCH="master"

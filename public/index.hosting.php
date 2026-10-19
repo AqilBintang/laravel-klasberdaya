@@ -7,7 +7,7 @@ define('LARAVEL_START', microtime(true));
 
 // Path ke root Laravel (satu level di atas public_html)
 // Sesuaikan jika nama folder berbeda
-$laravelRoot = dirname(__DIR__) . '/laravel_klasberdaya';
+$laravelRoot = dirname(__DIR__) . '/klasberdaya';
 
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = $laravelRoot . '/storage/framework/maintenance.php')) {

@@ -24,7 +24,7 @@
 │   ├── banners/
 │   └── build/            ← Hasil npm run build (folder assets Vite)
 │
-└── laravel_klasberdaya/  ← Semua file Laravel (di luar public_html)
+└── klasberdaya/          ← Semua file Laravel (di luar public_html)
     ├── app/
     ├── bootstrap/
     ├── config/
@@ -72,7 +72,7 @@ composer install --optimize-autoloader --no-dev
 1. Login cPanel → **File Manager**
 2. Upload semua folder/file Laravel (kecuali `node_modules`, `vendor` jika sudah ada) ke:
    ```
-   /home/namauser/laravel_klasberdaya/
+   /home/namauser/klasberdaya/
    ```
 3. Upload isi folder `public/` ke `/home/namauser/public_html/`:
    - `public/.htaccess` → `public_html/.htaccess`
@@ -89,9 +89,9 @@ ssh namauser@klasberdaya.com
 
 # Clone repo
 cd ~
-git clone https://github.com/AqilBintang/laravel-klasberdaya.git laravel_klasberdaya
+git clone https://github.com/AqilBintang/laravel-klasberdaya.git klasberdaya
 
-cd laravel_klasberdaya
+cd klasberdaya
 
 # Install dependencies
 composer install --optimize-autoloader --no-dev
@@ -113,7 +113,7 @@ cp public/robots.txt ~/public_html/
 
 Di hosting, **buat file `.env` manual** (JANGAN upload dari lokal karena berisi credentials lokal).
 
-Via File Manager cPanel → masuk ke `laravel_klasberdaya/` → **New File** → `.env`
+Via File Manager cPanel → masuk ke `klasberdaya/` → **New File** → `.env`
 
 Isi dengan (sesuaikan dengan data database kamu):
 
@@ -173,7 +173,7 @@ VITE_APP_NAME="Klas Berdaya"
 Via **Terminal cPanel** atau **SSH**:
 
 ```bash
-cd ~/laravel_klasberdaya
+cd ~/klasberdaya
 php artisan key:generate
 ```
 
@@ -191,7 +191,7 @@ Salin hasilnya (format: `base64:xxxx...`) ke `.env` pada baris `APP_KEY=`.
 ## Langkah 6 — Setup Permission Storage
 
 ```bash
-cd ~/laravel_klasberdaya
+cd ~/klasberdaya
 chmod -R 775 storage
 chmod -R 775 bootstrap/cache
 ```
@@ -205,7 +205,7 @@ Via File Manager: klik kanan folder `storage` dan `bootstrap/cache` → **Change
 Via **Terminal cPanel** atau **SSH**:
 
 ```bash
-cd ~/laravel_klasberdaya
+cd ~/klasberdaya
 
 # Jalankan migration
 php artisan migrate --force
@@ -224,7 +224,7 @@ php artisan db:seed --force
 ## Langkah 8 — Optimize untuk Production
 
 ```bash
-cd ~/laravel_klasberdaya
+cd ~/klasberdaya
 
 # Cache config, routes, views
 php artisan config:cache
@@ -297,7 +297,7 @@ Buka browser dan cek:
 Jika ada perubahan kode:
 
 ```bash
-cd ~/laravel_klasberdaya
+cd ~/klasberdaya
 
 # Pull perubahan terbaru
 git pull origin master
