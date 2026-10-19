@@ -14,7 +14,9 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
+# /public/build — di-include agar bisa deploy ke shared hosting tanpa Node.js
+# Uncomment baris di bawah jika tidak ingin commit hasil build:
+# /public/build
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
