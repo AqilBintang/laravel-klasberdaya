@@ -13,7 +13,7 @@
 
     {{-- ① HERO ------------------------------------------------------------ --}}
     <section
-        class="sticky top-0 flex items-center justify-center"
+        class="sticky top-0 flex items-center justify-center overflow-hidden"
         style="min-height:100svh; background-image:url('/hero/hero.jpg'); background-size:cover; background-position:center; background-repeat:no-repeat;"
         aria-label="Hero section"
     >
@@ -126,7 +126,7 @@
     </section>
 
     {{-- Sections below overlay the sticky hero --}}
-    <div class="relative z-10">
+    <div class="relative z-10 bg-white">
 
     {{-- ② STAT CARDS -------------------------------------------------------- --}}
     <section aria-label="Statistik ringkas" style="background-color:oklch(88.87% 0.0568 219.092)">

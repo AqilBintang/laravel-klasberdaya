@@ -23,7 +23,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
-<body class="font-sans antialiased bg-white text-gray-900">
+<body class="font-sans antialiased bg-white text-gray-900 flex flex-col min-h-screen">
 
     {{-- =====================================================================
          NAVBAR — migrasi dari Navbar.tsx
@@ -229,11 +229,11 @@
         if (nav) {
             window.addEventListener('scroll', function () {
                 if (window.scrollY > 50) {
-                    nav.classList.remove('w-full', 'bg-white', 'border-b', 'border-gray-100', 'shadow-sm');
-                    nav.classList.add('mt-2.5', 'w-[95%]', 'sm:w-[88%]', 'md:w-[80%]', 'rounded-2xl', 'bg-white', 'shadow-[0_5px_20px_rgba(0,0,0,0.15)]');
+                    nav.classList.add('shadow-[0_5px_20px_rgba(0,0,0,0.12)]');
+                    nav.classList.remove('shadow-sm', 'border-b', 'border-gray-100');
                 } else {
-                    nav.classList.remove('mt-2.5', 'w-[95%]', 'sm:w-[88%]', 'md:w-[80%]', 'rounded-2xl', 'shadow-[0_5px_20px_rgba(0,0,0,0.15)]');
-                    nav.classList.add('w-full', 'border-b', 'border-gray-100', 'shadow-sm');
+                    nav.classList.remove('shadow-[0_5px_20px_rgba(0,0,0,0.12)]');
+                    nav.classList.add('shadow-sm', 'border-b', 'border-gray-100');
                 }
             }, { passive: true });
         }
