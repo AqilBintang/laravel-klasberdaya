@@ -29,7 +29,7 @@
          NAVBAR — migrasi dari Navbar.tsx
          Scroll effect dihandle JS di bawah
     ====================================================================== --}}
-    <header class="fixed top-0 z-50 w-full" id="site-header">
+    <header class="fixed top-0 z-50 w-full px-0 transition-all duration-300 ease-in-out" id="site-header">
         <nav
             id="main-nav"
             aria-label="Navigasi Utama"
@@ -225,15 +225,22 @@
     <script>
     (function () {
         // ── Scroll effect ──────────────────────────────────────────────────
-        const nav = document.getElementById('main-nav');
-        if (nav) {
+        // Animasi: header padding melebar → nav terlihat "mengambang" + rounded
+        // Tidak mengubah width elemen → tidak ada layout reflow di konten bawah
+        const header = document.getElementById('site-header');
+        const nav    = document.getElementById('main-nav');
+        if (header && nav) {
             window.addEventListener('scroll', function () {
                 if (window.scrollY > 50) {
-                    nav.classList.add('shadow-[0_5px_20px_rgba(0,0,0,0.12)]');
-                    nav.classList.remove('shadow-sm', 'border-b', 'border-gray-100');
+                    // Floating state
+                    header.classList.add('px-3', 'sm:px-5', 'pt-2.5');
+                    nav.classList.remove('w-full', 'border-b', 'border-gray-100', 'shadow-sm');
+                    nav.classList.add('rounded-2xl', 'shadow-[0_5px_20px_rgba(0,0,0,0.15)]');
                 } else {
-                    nav.classList.remove('shadow-[0_5px_20px_rgba(0,0,0,0.12)]');
-                    nav.classList.add('shadow-sm', 'border-b', 'border-gray-100');
+                    // Default state
+                    header.classList.remove('px-3', 'sm:px-5', 'pt-2.5');
+                    nav.classList.add('w-full', 'border-b', 'border-gray-100', 'shadow-sm');
+                    nav.classList.remove('rounded-2xl', 'shadow-[0_5px_20px_rgba(0,0,0,0.15)]');
                 }
             }, { passive: true });
         }
