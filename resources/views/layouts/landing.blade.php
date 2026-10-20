@@ -199,7 +199,7 @@
         <div class="border-t border-gray-800">
             <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
                 <span>© {{ date('Y') }} Klas Berdaya. Seluruh hak cipta dilindungi.</span>
-                <span>Klasifikasi Indeks Desa Wilayah Semarang</span>
+                <span>Klasifikasi Kecamatan Berdaya Provinsi Jawa Tengah</span>
             </div>
         </div>
     </footer>
