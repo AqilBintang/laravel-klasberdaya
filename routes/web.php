@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\PanduanController            as AdminPanduan;
 use App\Http\Controllers\Admin\WilayahController            as AdminWilayah;
 use App\Http\Controllers\Admin\ManageAdminController;
 use App\Http\Controllers\Admin\ManageKecamatanController;
+use App\Http\Controllers\Admin\FaqController             as AdminFaq;
 
 // Controllers — Kecamatan
 use App\Http\Controllers\Kecamatan\DashboardController      as KecamatanDashboard;
@@ -164,6 +165,27 @@ Route::prefix('admin')
             Route::get('/',       [AdminLandingPage::class, 'index'])->name('index');
             Route::put('/',       [AdminLandingPage::class, 'update'])->name('update');
             Route::post('/upload',[AdminLandingPage::class, 'upload'])->name('upload');
+        });
+
+        // ── FAQ ───────────────────────────────────────────────────────
+        Route::prefix('faq')->name('faq.')->group(function () {
+            // Daftar kategori
+            Route::get('/',  [AdminFaq::class, 'index'])->name('index');
+
+            // CRUD kategori
+            Route::prefix('categories')->name('category.')->group(function () {
+                Route::post('/',              [AdminFaq::class, 'storeCategory'])->name('store');
+                Route::get('/{category}',     [AdminFaq::class, 'showCategory'])->name('show');
+                Route::put('/{category}',     [AdminFaq::class, 'updateCategory'])->name('update');
+                Route::delete('/{category}',  [AdminFaq::class, 'destroyCategory'])->name('destroy');
+
+                // CRUD item dalam kategori
+                Route::prefix('/{category}/items')->name('item.')->group(function () {
+                    Route::post('/',         [AdminFaq::class, 'storeItem'])->name('store');
+                    Route::put('/{item}',    [AdminFaq::class, 'updateItem'])->name('update');
+                    Route::delete('/{item}', [AdminFaq::class, 'destroyItem'])->name('destroy');
+                });
+            });
         });
 
         // ── Panduan ───────────────────────────────────────────────────
