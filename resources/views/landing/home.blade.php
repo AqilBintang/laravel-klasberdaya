@@ -25,13 +25,10 @@
             {{-- Caption kiri --}}
             <div class="flex-1 flex flex-col items-start gap-5 text-white text-center lg:text-left">
                 <h1 class="w-full text-3xl sm:text-4xl lg:text-5xl font-normal tracking-tight leading-tight drop-shadow-lg">
-                    Klasifikasi Indeks<br>Kecamatan Berdaya
+                    Klasifikasi<br>Kecamatan Berdaya
                 </h1>
                 <p class="text-base text-justify lg:text-lg font-normal text-white/80 leading-relaxed">
-                    Klas Berdaya merupakan sistem penilaian yang digunakan untuk mengidentifikasi dan mengukur tingkat
-                    keberdayaan kecamatan di Jawa Tengah. Penilaian dilakukan melalui Self Assessment berdasarkan
-                    sejumlah indikator yang menggambarkan kondisi, kapasitas, serta potensi kecamatan dalam mendukung
-                    proses pemberdayaan masyarakat dan wilayah.
+                    Klas Berdaya (Klasifikasi Kecamatan Berdaya) merupakan sistem penilaian yang digunakan untuk mengukur tingkat perkembangan implementasi Program Kecamatan Berdaya di Provinsi Jawa Tengah.  Penilaian dilakukan melalui self assessment berdasarkan sejumlah indikator ukur.
                 </p>
                 <a
                     href="#data"
