@@ -221,12 +221,12 @@
             window.addEventListener('scroll', function () {
                 if (window.scrollY > 50) {
                     // Floating state
-                    header.classList.add('px-3', 'sm:px-5', 'pt-2.5');
+                    header.classList.add('px-3', 'sm:px-5', 'pt-4');
                     nav.classList.remove('w-full', 'border-b', 'border-gray-100', 'shadow-sm');
                     nav.classList.add('rounded-2xl', 'shadow-[0_5px_20px_rgba(0,0,0,0.15)]');
                 } else {
                     // Default state
-                    header.classList.remove('px-3', 'sm:px-5', 'pt-2.5');
+                    header.classList.remove('px-3', 'sm:px-5', 'pt-4');
                     nav.classList.add('w-full', 'border-b', 'border-gray-100', 'shadow-sm');
                     nav.classList.remove('rounded-2xl', 'shadow-[0_5px_20px_rgba(0,0,0,0.15)]');
                 }
