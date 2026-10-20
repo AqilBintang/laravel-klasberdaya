@@ -29,7 +29,7 @@
         @endif
 
         {{-- ── TABS ───────────────────────────────────────────────────────── --}}
-        <div x-data="{ tab: '{{ session('active_tab', 'banner') }}' }">
+        <div x-data="{ tab: '{{ session('active_tab', $activeTab ?? 'banner') }}' }">
 
             <div class="border-b border-gray-200">
                 <nav class="flex gap-0" aria-label="Tab navigasi landing page">
@@ -297,45 +297,95 @@
                         ->orderBy('sort_order')->orderBy('id')->get();
                 @endphp
 
-                <div class="space-y-4">
+                {{-- Info --}}
+                <div class="flex items-start gap-2 rounded-md bg-sky-50 border border-sky-200 px-3 py-2 text-xs text-sky-700 mb-4">
+                    <svg class="w-3.5 h-3.5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Gunakan <strong>Urutan</strong> untuk mengatur posisi tampil kategori. Angka lebih kecil tampil lebih dulu. Klik <strong>Kelola Pertanyaan</strong> untuk menambah/edit pertanyaan dalam kategori.</span>
+                </div>
 
-                    <p class="text-sm text-gray-500">
-                        Kelola pertanyaan yang tampil di halaman FAQ publik. Atur kategori dan pertanyaan di dalamnya.
-                    </p>
+                <div x-data="{ modalFaqAdd: false, modalFaqEdit: false, faqEditData: {} }" class="space-y-4">
 
-                    {{-- Ringkasan kategori --}}
+                    {{-- Header: tombol tambah + lihat publik --}}
+                    <div class="flex items-center justify-between gap-3">
+                        <a href="{{ route('landing.faq') }}" target="_blank"
+                           class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                            Lihat FAQ Publik
+                        </a>
+                        <button type="button"
+                                @click="modalFaqAdd = true"
+                                class="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Tambah Kategori
+                        </button>
+                    </div>
+
+                    {{-- Tabel kategori --}}
                     @if ($faqCategories->isNotEmpty())
                         <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 border-b border-gray-200">
                                     <tr>
-                                        <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Kategori</th>
-                                        <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Jumlah Pertanyaan</th>
-                                        <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Status</th>
-                                        <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide w-36">Aksi</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-10">No</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Nama Kategori</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Pertanyaan</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Urutan</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Status</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
-                                    @foreach ($faqCategories as $cat)
+                                    @foreach ($faqCategories as $i => $cat)
                                         <tr class="hover:bg-gray-50 transition-colors">
-                                            <td class="px-5 py-3 font-medium text-gray-800">{{ $cat->name }}</td>
-                                            <td class="px-5 py-3 text-center">
+                                            <td class="px-4 py-3 text-gray-400 text-xs">{{ $i + 1 }}</td>
+                                            <td class="px-4 py-3 font-medium text-gray-800">{{ $cat->name }}</td>
+                                            <td class="px-4 py-3 text-center">
                                                 <span class="rounded-full bg-gray-100 text-gray-600 px-2.5 py-0.5 text-xs font-medium">
                                                     {{ $cat->items_count }}
                                                 </span>
                                             </td>
-                                            <td class="px-5 py-3 text-center">
+                                            <td class="px-4 py-3 text-center text-gray-500 text-xs">{{ $cat->sort_order }}</td>
+                                            <td class="px-4 py-3 text-center">
                                                 @if ($cat->is_active)
                                                     <span class="rounded-full bg-green-100 text-green-700 px-2.5 py-0.5 text-xs font-medium">Aktif</span>
                                                 @else
                                                     <span class="rounded-full bg-gray-100 text-gray-500 px-2.5 py-0.5 text-xs font-medium">Non-aktif</span>
                                                 @endif
                                             </td>
-                                            <td class="px-5 py-3 text-right">
-                                                <a href="{{ route('admin.faq.category.show', $cat) }}"
-                                                   class="rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 transition-colors">
-                                                    Kelola Pertanyaan
-                                                </a>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <a href="{{ route('admin.faq.category.show', $cat) }}"
+                                                       class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                                                        Kelola Pertanyaan
+                                                    </a>
+                                                    <button type="button"
+                                                            @click="modalFaqEdit = true; faqEditData = {
+                                                                id:         {{ $cat->id }},
+                                                                name:       '{{ addslashes($cat->name) }}',
+                                                                sort_order: {{ $cat->sort_order }},
+                                                                is_active:  {{ $cat->is_active ? 'true' : 'false' }}
+                                                            }"
+                                                            class="rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 transition-colors">
+                                                        Edit
+                                                    </button>
+                                                    <form method="POST"
+                                                          action="{{ route('admin.faq.category.destroy', $cat) }}"
+                                                          onsubmit="return confirm('Hapus kategori \'{{ addslashes($cat->name) }}\' beserta {{ $cat->items_count }} pertanyaan di dalamnya?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <input type="hidden" name="_from_landing" value="1">
+                                                        <button type="submit"
+                                                                class="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors">
+                                                            Hapus
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -343,24 +393,153 @@
                             </table>
                         </div>
                     @else
-                        <div class="rounded-xl border-2 border-dashed border-gray-200 bg-white py-10 text-center">
+                        <div class="rounded-xl border-2 border-dashed border-gray-200 bg-white py-14 text-center">
+                            <svg class="mx-auto w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
                             <p class="text-sm text-gray-500">Belum ada kategori FAQ.</p>
+                            <button type="button" @click="modalFaqAdd = true"
+                                    class="mt-3 inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors">
+                                Tambah Kategori Pertama
+                            </button>
                         </div>
                     @endif
 
-                    {{-- Tombol ke halaman kelola FAQ --}}
-                    <div class="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <p class="text-xs text-gray-400">Untuk menambah/menghapus kategori, buka halaman Kelola FAQ.</p>
-                        <a href="{{ route('admin.faq.index') }}"
-                           class="flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-sky-700 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            Kelola FAQ Lengkap
-                        </a>
+                    {{-- MODAL: TAMBAH KATEGORI --}}
+                    <div x-show="modalFaqAdd"
+                         x-cloak
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100"
+                         x-transition:leave-end="opacity-0"
+                         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                         @keydown.escape.window="modalFaqAdd = false">
+                        <div class="w-full max-w-md rounded-2xl bg-white shadow-xl" @click.outside="modalFaqAdd = false">
+                            <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+                                <h3 class="text-base font-semibold text-gray-900">Tambah Kategori FAQ</h3>
+                                <button type="button" @click="modalFaqAdd = false"
+                                        class="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <form method="POST" action="{{ route('admin.faq.category.store') }}" class="px-6 py-5 space-y-4">
+                                @csrf
+                                <input type="hidden" name="_from_landing" value="1">
+                                <div>
+                                    <label for="lp_add_name" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Nama Kategori <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="lp_add_name" name="name"
+                                           value="{{ old('name') }}"
+                                           placeholder="Contoh: Umum, Penilaian & Klasifikasi"
+                                           required
+                                           class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="lp_add_sort_order" class="block text-sm font-medium text-gray-700 mb-1">Urutan</label>
+                                        <input type="number" id="lp_add_sort_order" name="sort_order"
+                                               value="{{ old('sort_order', 0) }}" min="0"
+                                               class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                        <p class="text-xs text-gray-400 mt-1">Angka lebih kecil = tampil lebih dulu</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                        <div class="flex items-center gap-2 mt-3">
+                                            <input type="hidden" name="is_active" value="0">
+                                            <input type="checkbox" id="lp_add_is_active" name="is_active" value="1" checked
+                                                   class="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                                            <label for="lp_add_is_active" class="text-sm text-gray-700">Aktif</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+                                    <button type="button" @click="modalFaqAdd = false"
+                                            class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                                        Batal
+                                    </button>
+                                    <button type="submit"
+                                            class="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors">
+                                        Simpan Kategori
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
+
+                    {{-- MODAL: EDIT KATEGORI --}}
+                    <div x-show="modalFaqEdit"
+                         x-cloak
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100"
+                         x-transition:leave-end="opacity-0"
+                         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                         @keydown.escape.window="modalFaqEdit = false">
+                        <div class="w-full max-w-md rounded-2xl bg-white shadow-xl" @click.outside="modalFaqEdit = false">
+                            <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+                                <h3 class="text-base font-semibold text-gray-900">Edit Kategori FAQ</h3>
+                                <button type="button" @click="modalFaqEdit = false"
+                                        class="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <form method="POST"
+                                  :action="'{{ url('admin/faq/categories') }}/' + faqEditData.id"
+                                  class="px-6 py-5 space-y-4">
+                                @csrf
+                                @method('PUT')
+                                <input type="hidden" name="_from_landing" value="1">
+                                <div>
+                                    <label for="lp_edit_name" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Nama Kategori <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="lp_edit_name" name="name"
+                                           :value="faqEditData.name"
+                                           required
+                                           class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="lp_edit_sort_order" class="block text-sm font-medium text-gray-700 mb-1">Urutan</label>
+                                        <input type="number" id="lp_edit_sort_order" name="sort_order"
+                                               :value="faqEditData.sort_order" min="0"
+                                               class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                        <div class="flex items-center gap-2 mt-3">
+                                            <input type="hidden" name="is_active" value="0">
+                                            <input type="checkbox" id="lp_edit_is_active" name="is_active" value="1"
+                                                   :checked="faqEditData.is_active"
+                                                   class="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                                            <label for="lp_edit_is_active" class="text-sm text-gray-700">Aktif</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+                                    <button type="button" @click="modalFaqEdit = false"
+                                            class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                                        Batal
+                                    </button>
+                                    <button type="submit"
+                                            class="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors">
+                                        Perbarui Kategori
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>{{-- end x-data faq --}}
             </div>
 
         </div>{{-- end x-data tabs --}}

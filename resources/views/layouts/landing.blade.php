@@ -187,7 +187,7 @@
                             <svg class="w-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                             </svg>
-                            <a href="mailto:info@klasberdaya.id" class="hover:text-white transition-colors">info@klasberdaya.id</a>
+                            <a href="mailto:kecamatanberdaya@jatengprov.go.id" class="hover:text-white transition-colors">kecamatanberdaya@jatengprov.go.id</a>
                         </li>
                     </ul>
                 </div>

@@ -43,9 +43,13 @@ class LandingPageController extends Controller
         $banner  = $this->getSetting('landing_banner', self::DEFAULT_BANNER);
         $tentang = $this->getSetting('landing_tentang_platform', self::DEFAULT_TENTANG);
 
+        // Tab aktif: dari query param (?tab=faq), session (setelah save), atau default 'banner'
+        $activeTab = request()->query('tab', session('active_tab', 'banner'));
+
         return view('admin.landing-page', [
-            'banner'  => $banner,
-            'tentang' => $tentang,
+            'banner'    => $banner,
+            'tentang'   => $tentang,
+            'activeTab' => $activeTab,
         ]);
     }
 

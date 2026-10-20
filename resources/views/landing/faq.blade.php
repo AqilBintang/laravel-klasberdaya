@@ -88,7 +88,7 @@
                 <p class="text-sm font-semibold text-gray-800">Tidak menemukan jawaban yang kamu cari?</p>
                 <p class="mt-1 text-sm text-gray-500">Hubungi kami langsung dan tim kami akan segera membantu.</p>
                 <a
-                    href="mailto:info@klasberdaya.id"
+                    href="mailto:kecamatanberdaya@jatengprov.go.id"
                     class="mt-4 inline-flex items-center gap-2 rounded-full bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors"
                 >
                     Hubungi Kami

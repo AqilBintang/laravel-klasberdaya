@@ -45,6 +45,12 @@ class FaqController extends Controller
             'is_active'  => $request->boolean('is_active', true),
         ]);
 
+        // Jika dikirim dari tab FAQ di landing-page, kembali ke sana
+        if ($request->input('_from_landing')) {
+            return redirect()->route('admin.landing-page.index', ['tab' => 'faq'])
+                             ->with('success', 'Kategori FAQ berhasil ditambahkan.');
+        }
+
         return redirect()->route('admin.faq.index')
                          ->with('success', 'Kategori FAQ berhasil ditambahkan.');
     }
@@ -66,6 +72,12 @@ class FaqController extends Controller
             'is_active'  => $request->boolean('is_active', true),
         ]);
 
+        // Jika dikirim dari tab FAQ di landing-page, kembali ke sana
+        if ($request->input('_from_landing')) {
+            return redirect()->route('admin.landing-page.index', ['tab' => 'faq'])
+                             ->with('success', 'Kategori FAQ berhasil diperbarui.');
+        }
+
         return redirect()->route('admin.faq.index')
                          ->with('success', 'Kategori FAQ berhasil diperbarui.');
     }
@@ -73,9 +85,15 @@ class FaqController extends Controller
     /**
      * Hapus kategori beserta semua item di dalamnya.
      */
-    public function destroyCategory(FaqCategory $category): RedirectResponse
+    public function destroyCategory(Request $request, FaqCategory $category): RedirectResponse
     {
         $category->delete(); // items terhapus otomatis lewat cascadeOnDelete
+
+        // Jika dikirim dari tab FAQ di landing-page, kembali ke sana
+        if ($request->input('_from_landing')) {
+            return redirect()->route('admin.landing-page.index', ['tab' => 'faq'])
+                             ->with('success', 'Kategori FAQ berhasil dihapus.');
+        }
 
         return redirect()->route('admin.faq.index')
                          ->with('success', 'Kategori FAQ berhasil dihapus.');
