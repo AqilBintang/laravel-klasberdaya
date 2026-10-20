@@ -153,8 +153,7 @@
                         <img src="/logo/kecamatan-berdaya.png" alt="Klas Berdaya" class="h-10 w-auto object-contain translate-y-px">
                     </a>
                     <p class="max-w-xs text-sm leading-relaxed text-gray-400">
-                        Platform klasifikasi indeks desa untuk mendukung pemberdayaan dan
-                        perkembangan desa di wilayah Semarang.
+                        Platform Klasifikasi Kecamatan Berdaya dalam mendukung evaluasi perkembangan implementasi program Kecamatan Berdaya Provinsi Jawa Tengah.
                     </p>
                 </div>
 
