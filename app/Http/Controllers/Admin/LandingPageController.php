@@ -90,6 +90,13 @@ class LandingPageController extends Controller
             }
         }
 
+        // Konversi URL Google Drive jika ada
+        foreach ($slides as $idx => $slide) {
+            if (!empty($slide['imageUrl'])) {
+                $slides[$idx]['imageUrl'] = $this->convertGoogleDriveUrl($slide['imageUrl']);
+            }
+        }
+
         // Bersihkan slide kosong
         $slides = array_values(array_filter($slides, fn ($s) => !empty($s['imageUrl']) || !empty($s['alt'])));
 
@@ -131,8 +138,9 @@ class LandingPageController extends Controller
             $path = $request->file('tentang_image')->store('banners', 'public_dir');
             $tentang['imageUrl'] = '/' . ltrim($path, '/');
         } else {
-            // Pertahankan URL lama
-            $tentang['imageUrl'] = $validated['tentang_image_existing'] ?? ($tentang['imageUrl'] ?? '');
+            // Pertahankan atau konversi URL lama
+            $existingUrl = $validated['tentang_image_existing'] ?? ($tentang['imageUrl'] ?? '');
+            $tentang['imageUrl'] = $this->convertGoogleDriveUrl($existingUrl);
         }
 
         $this->setSetting('landing_tentang_platform', $tentang);
@@ -152,6 +160,30 @@ class LandingPageController extends Controller
         $url  = '/' . ltrim($path, '/');
 
         return response()->json(['url' => $url]);
+    }
+
+    /**
+     * Helper: konversi URL Google Drive ke URL direct image.
+     * Format sharing:  https://drive.google.com/file/d/FILE_ID/view?...
+     * Format direct:   https://drive.google.com/uc?export=view&id=FILE_ID
+     */
+    private function convertGoogleDriveUrl(string $url): string
+    {
+        if (empty($url)) {
+            return $url;
+        }
+
+        // Pattern: /file/d/FILE_ID/
+        if (preg_match('/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            return 'https://drive.google.com/uc?export=view&id=' . $matches[1];
+        }
+
+        // Pattern: open?id=FILE_ID
+        if (preg_match('/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            return 'https://drive.google.com/uc?export=view&id=' . $matches[1];
+        }
+
+        return $url;
     }
 
     /**
