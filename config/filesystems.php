@@ -50,7 +50,7 @@ return [
         // Disk yang langsung menulis ke public/ — tidak memerlukan symlink
         'public_dir' => [
             'driver' => 'local',
-            'root' => public_path(),
+            'root' => env('PUBLIC_DIR_PATH', public_path()),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/'),
             'visibility' => 'public',
             'throw' => false,
