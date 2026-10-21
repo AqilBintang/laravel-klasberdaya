@@ -116,20 +116,10 @@
                                         {{-- Input area --}}
                                         <div class="flex-1 min-w-0 space-y-2">
 
-                                            {{-- URL gambar --}}
-                                            <div>
-                                                <label class="block text-xs font-medium text-gray-500 mb-1">URL Gambar</label>
-                                                <input type="text"
-                                                       :name="'slides[' + idx + '][imageUrl]'"
-                                                       x-model="slide.imageUrl"
-                                                       placeholder="https://… atau /banners/banner-1.jpg"
-                                                       class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
-                                            </div>
-
                                             {{-- Upload file --}}
                                             <div>
                                                 <label class="block text-xs font-medium text-gray-500 mb-1">
-                                                    Atau upload gambar <span class="font-normal text-gray-400">(JPG/PNG/WebP · maks 5 MB)</span>
+                                                    Upload gambar <span class="font-normal text-gray-400">(JPG/PNG/WebP · maks 5 MB)</span>
                                                 </label>
                                                 <input type="file"
                                                        :name="'slide_files[' + idx + ']'"
@@ -137,6 +127,9 @@
                                                        @change="handleFilePreview($event, idx)"
                                                        class="text-sm text-gray-600 file:mr-3 file:rounded-lg file:border file:border-gray-200 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-gray-600 hover:file:bg-gray-50">
                                             </div>
+
+                                            {{-- Hidden imageUrl (pertahankan URL existing jika tidak upload baru) --}}
+                                            <input type="hidden" :name="'slides[' + idx + '][imageUrl]'" :value="slide.imageUrl">
 
                                             {{-- Alt text --}}
                                             <div>
