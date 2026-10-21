@@ -85,8 +85,8 @@ class LandingPageController extends Controller
         // Proses file upload untuk setiap slide yang punya file
         foreach ($slideFiles as $idx => $file) {
             if ($file && $file->isValid()) {
-                $path = $file->store('banners', 'public');
-                $slides[$idx]['imageUrl'] = Storage::url($path);
+                $path = $file->store('banners', 'public_dir');
+                $slides[$idx]['imageUrl'] = '/' . ltrim($path, '/');
             }
         }
 
@@ -123,13 +123,13 @@ class LandingPageController extends Controller
 
         // Handle upload gambar tentang
         if ($request->hasFile('tentang_image') && $request->file('tentang_image')->isValid()) {
-            // Hapus gambar lama jika ada dan bukan URL eksternal
-            if (!empty($tentang['imageUrl']) && str_starts_with($tentang['imageUrl'], '/storage/')) {
-                $oldPath = str_replace('/storage/', '', $tentang['imageUrl']);
-                Storage::disk('public')->delete($oldPath);
+            // Hapus gambar lama jika ada
+            if (!empty($tentang['imageUrl'])) {
+                $oldPath = ltrim($tentang['imageUrl'], '/');
+                Storage::disk('public_dir')->delete($oldPath);
             }
-            $path = $request->file('tentang_image')->store('banners', 'public');
-            $tentang['imageUrl'] = Storage::url($path);
+            $path = $request->file('tentang_image')->store('banners', 'public_dir');
+            $tentang['imageUrl'] = '/' . ltrim($path, '/');
         } else {
             // Pertahankan URL lama
             $tentang['imageUrl'] = $validated['tentang_image_existing'] ?? ($tentang['imageUrl'] ?? '');
@@ -148,8 +148,8 @@ class LandingPageController extends Controller
             'file' => 'required|image|max:5120',
         ]);
 
-        $path = $request->file('file')->store('banners', 'public');
-        $url  = Storage::url($path);
+        $path = $request->file('file')->store('banners', 'public_dir');
+        $url  = '/' . ltrim($path, '/');
 
         return response()->json(['url' => $url]);
     }
