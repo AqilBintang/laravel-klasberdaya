@@ -54,20 +54,20 @@
                     data-autoplay="4000"
                 >
                     {{-- Slide area --}}
-                    <div class="relative w-full bg-gray-200" style="height:220px;">
+                    <div class="relative w-full bg-white" style="min-height:180px;">
                         @forelse ($bannerSlides as $i => $slide)
                             <div
-                                class="banner-slide absolute inset-0 transition-opacity duration-500 {{ $i === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0' }}"
+                                class="banner-slide {{ $i === 0 ? '' : 'absolute inset-0' }} transition-opacity duration-500 {{ $i === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0' }}"
                                 data-index="{{ $i }}"
                             >
                                 @if(!empty($slide['imageUrl']))
                                     <img
                                         src="{{ $slide['imageUrl'] }}"
                                         alt="{{ $slide['alt'] ?? '' }}"
-                                        class="w-full h-full object-cover"
+                                        class="w-full h-auto block"
                                     >
                                 @else
-                                    <div class="w-full h-full flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300">
+                                    <div class="w-full flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300" style="min-height:180px;">
                                         <span class="text-sm text-gray-400 select-none">
                                             Banner {{ $i + 1 }} — banner info
                                         </span>
