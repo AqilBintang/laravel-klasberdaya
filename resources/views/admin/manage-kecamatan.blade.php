@@ -20,12 +20,6 @@
             </a>
         </div>
 
-        @if (session('success'))
-            <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                {{ session('success') }}
-            </div>
-        @endif
-
         @if (isset($stats) && count($stats) > 0)
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 @foreach ($stats as $kab)

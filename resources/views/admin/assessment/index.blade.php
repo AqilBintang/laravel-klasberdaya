@@ -20,13 +20,6 @@
             </a>
         </div>
 
-        {{-- Flash --}}
-        @if (session('success'))
-            <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                {{ session('success') }}
-            </div>
-        @endif
-
         {{-- Table --}}
         @if (isset($assessments) && $assessments->isNotEmpty())
             <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

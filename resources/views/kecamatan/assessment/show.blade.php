@@ -71,18 +71,6 @@
             @endisset
         </div>
 
-        {{-- ── Flash ───────────────────────────────────────────────────── --}}
-        @if (session('success'))
-            <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                {{ session('success') }}
-            </div>
-        @endif
-        @if (session('error'))
-            <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {{ session('error') }}
-            </div>
-        @endif
-
         @isset($assessment)
 
         @if (!empty($blocked))

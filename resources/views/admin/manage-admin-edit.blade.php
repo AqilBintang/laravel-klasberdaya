@@ -20,12 +20,6 @@
             <p class="mt-1 text-sm text-gray-500">{{ $user->email }}</p>
         </div>
 
-        @if (session('success'))
-            <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                {{ session('success') }}
-            </div>
-        @endif
-
         <form method="POST" action="{{ route('admin.manage-admin.update', $id) }}" class="space-y-6">
             @csrf
             @method('PUT')

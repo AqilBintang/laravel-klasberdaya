@@ -17,13 +17,6 @@
             </p>
         </div>
 
-        {{-- ── Flash messages ───────────────────────────────────────────── --}}
-        @if (session('error'))
-            <div class="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
-                {{ session('error') }}
-            </div>
-        @endif
-
         @if (empty($availableYears))
             {{-- ── Empty state ─────────────────────────────────────────── --}}
             <div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed
