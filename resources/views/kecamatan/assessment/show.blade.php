@@ -522,7 +522,10 @@
                                             <div class="sm:col-span-2">
                                                 <label for="desc_{{ $indicator->id }}"
                                                        class="block text-xs font-medium text-gray-600 mb-1">
-                                                    Deskripsi / Bukti Pendukung
+                                                    Deskripsi
+                                                    @if (!$isLocked)
+                                                        <span class="text-red-500" aria-hidden="true">*</span>
+                                                    @endif
                                                 </label>
                                                 <textarea id="desc_{{ $indicator->id }}"
                                                           name="entries[{{ $indicator->id }}][description]"
@@ -538,7 +541,10 @@
                                             <div>
                                                 <label for="score_{{ $indicator->id }}"
                                                        class="block text-xs font-medium text-gray-600 mb-1">
-                                                    Skor Mandiri (1–{{ $indicator->max_score }})
+                                                    Skor (1–{{ $indicator->max_score }})
+                                                    @if (!$isLocked)
+                                                        <span class="text-red-500" aria-hidden="true">*</span>
+                                                    @endif
                                                 </label>
                                                 <select id="score_{{ $indicator->id }}"
                                                         name="entries[{{ $indicator->id }}][score]"
@@ -546,9 +552,12 @@
                                                         class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                                focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100
                                                                disabled:bg-gray-50 disabled:text-gray-500">
+                                                    @if (!$entry || $entry->score === null)
+                                                        <option value="" disabled selected>-- Pilih Skor --</option>
+                                                    @endif
                                                     @for ($s = 1; $s <= $indicator->max_score; $s++)
                                                         <option value="{{ $s }}"
-                                                            {{ ($entry?->score ?? 1) == $s ? 'selected' : '' }}>
+                                                            {{ ($entry?->score ?? null) == $s ? 'selected' : '' }}>
                                                             {{ $s }}
                                                         </option>
                                                     @endfor
@@ -562,32 +571,101 @@
                                             </div>
                                         </div>
 
-                                        {{-- Dokumen pendukung (link Google Drive) --}}
+                                        {{-- Dokumen pendukung --}}
+                                        @php
+                                            $savedDoc  = $entry?->supporting_doc ?? null;
+                                            $docChoice = null;
+                                            if ($savedDoc === 'NO_DOC') {
+                                                $docChoice = 'no_doc';
+                                            } elseif ($savedDoc !== null && $savedDoc !== '') {
+                                                $docChoice = 'gdrive';
+                                            }
+                                        @endphp
                                         <div>
-                                            <label for="doc_{{ $indicator->id }}"
-                                                   class="block text-xs font-medium text-gray-600 mb-1">
-                                                Link Dokumen Pendukung
-                                                <span class="text-gray-400 font-normal">(Google Drive, opsional)</span>
-                                            </label>
-                                            <input type="url"
-                                                   id="doc_{{ $indicator->id }}"
-                                                   name="entries[{{ $indicator->id }}][supporting_doc]"
-                                                   value="{{ $entry?->supporting_doc }}"
-                                                   @if ($isLocked) disabled readonly @endif
-                                                   placeholder="https://drive.google.com/…"
-                                                   maxlength="500"
-                                                   class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
-                                                          focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100
-                                                          disabled:bg-gray-50 disabled:text-gray-500">
-                                            @if ($entry?->supporting_doc && !$isLocked)
-                                                <a href="{{ $entry->supporting_doc }}"
-                                                   target="_blank" rel="noopener noreferrer"
-                                                   class="mt-1 inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                                    </svg>
-                                                    Lihat dokumen tersimpan
-                                                </a>
+                                            <p class="block text-xs font-medium text-gray-700 mb-0.5">
+                                                Status Bukti Pendukung
+                                                @if (!$isLocked)
+                                                    <span class="text-red-500" aria-hidden="true">*</span>
+                                                @endif
+                                            </p>
+                                            @if (!$isLocked)
+                                                <p class="text-xs text-gray-400 mb-2">Pilih salah satu berikut. Pilihan ini wajib ditentukan sebelum formulir dikirim.</p>
+                                            @endif
+
+                                            @if ($isLocked)
+                                                {{-- Tampilan readonly --}}
+                                                @if ($savedDoc === 'NO_DOC')
+                                                    <p class="text-xs text-gray-500 italic">Belum terdapat kegiatan — link dokumen tidak diperlukan.</p>
+                                                @elseif ($savedDoc)
+                                                    <a href="{{ $savedDoc }}" target="_blank" rel="noopener noreferrer"
+                                                       class="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                        </svg>
+                                                        Lihat dokumen tersimpan
+                                                    </a>
+                                                @else
+                                                    <p class="text-xs text-gray-400 italic">Tidak ada dokumen.</p>
+                                                @endif
+                                            @else
+                                                {{-- Radio cards --}}
+                                                <div class="space-y-2 doc-radio-group" data-ind="{{ $indicator->id }}">
+
+                                                    {{-- Pilihan 1: Google Drive --}}
+                                                    <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
+                                                                  {{ $docChoice === 'gdrive' ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-400' : 'border-gray-200 bg-white hover:border-gray-300' }}">
+                                                        <input type="radio"
+                                                               name="doc_choice_{{ $indicator->id }}"
+                                                               value="gdrive"
+                                                               class="doc-choice-radio mt-0.5 accent-sky-600 shrink-0"
+                                                               data-ind="{{ $indicator->id }}"
+                                                               {{ $docChoice === 'gdrive' ? 'checked' : '' }}>
+                                                        <div class="min-w-0">
+                                                            <p class="text-xs font-semibold text-gray-800 leading-snug">Melampirkan link Google Drive</p>
+                                                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">Pilih jika sudah ada dan tersedia dokumen/foto bukti pendukung.</p>
+                                                        </div>
+                                                    </label>
+
+                                                    {{-- Field URL Google Drive (muncul jika pilih gdrive) --}}
+                                                    <div id="doc_field_{{ $indicator->id }}"
+                                                         class="{{ $docChoice === 'gdrive' ? '' : 'hidden' }} pl-3">
+                                                        <input type="url"
+                                                               name="entries[{{ $indicator->id }}][supporting_doc]"
+                                                               value="{{ $docChoice === 'gdrive' ? $savedDoc : '' }}"
+                                                               placeholder="https://drive.google.com/…"
+                                                               maxlength="500"
+                                                               class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
+                                                                      focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                                    </div>
+
+                                                    {{-- Pilihan 2: Belum terdapat kegiatan --}}
+                                                    <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
+                                                                  {{ $docChoice === 'no_doc' ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-400' : 'border-gray-200 bg-white hover:border-gray-300' }}">
+                                                        <input type="radio"
+                                                               name="doc_choice_{{ $indicator->id }}"
+                                                               value="no_doc"
+                                                               class="doc-choice-radio mt-0.5 accent-sky-600 shrink-0"
+                                                               data-ind="{{ $indicator->id }}"
+                                                               {{ $docChoice === 'no_doc' ? 'checked' : '' }}>
+                                                        <div class="min-w-0">
+                                                            <p class="text-xs font-semibold text-gray-800 leading-snug">Belum Terdapat Kegiatan</p>
+                                                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">Pilih jika kegiatan yang dimaksud memang belum dilaksanakan.</p>
+                                                        </div>
+                                                    </label>
+
+                                                    {{-- Info box: muncul jika pilih no_doc --}}
+                                                    <div id="doc_nodoc_{{ $indicator->id }}"
+                                                         class="{{ $docChoice === 'no_doc' ? '' : 'hidden' }}">
+                                                        <input type="hidden"
+                                                               name="entries[{{ $indicator->id }}][supporting_doc]"
+                                                               value="NO_DOC">
+                                                        <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                                                            <p class="text-xs font-semibold text-blue-800 mb-0.5">Link dokumen tidak diperlukan.</p>
+                                                            <p class="text-xs text-blue-700 leading-snug">Dengan memilih opsi ini, pengguna menyatakan bahwa belum terdapat kegiatan untuk indikator tersebut.</p>
+                                                        </div>
+                                                    </div>
+
+                                                </div>
                                             @endif
                                         </div>
                                     </div>
@@ -671,6 +749,148 @@
                 } catch (e) {
                     alert('Gagal menyimpan draft. Coba lagi.');
                 }
+            });
+        })();
+
+        // Validasi mandatory sebelum submit
+        (function () {
+            var form = document.getElementById('form-assessment');
+            if (!form) return;
+
+            form.addEventListener('submit', function (e) {
+                var emptyFields = [];
+
+                // Cek textarea deskripsi yang belum diisi
+                form.querySelectorAll('textarea[name*="[description]"]:not([disabled])').forEach(function (ta) {
+                    if (ta.value.trim() === '') {
+                        var row  = ta.closest('[data-indicator-id]');
+                        var num  = row ? (row.querySelector('span.w-6') || {}).textContent || '?' : '?';
+                        emptyFields.push({ el: ta, type: 'desc', num: num.trim() });
+                    }
+                });
+
+                // Cek select skor yang masih placeholder (value kosong)
+                form.querySelectorAll('select[name*="[score]"]:not([disabled])').forEach(function (sel) {
+                    if (sel.value === '') {
+                        var row = sel.closest('[data-indicator-id]');
+                        var num = row ? (row.querySelector('span.w-6') || {}).textContent || '?' : '?';
+                        emptyFields.push({ el: sel, type: 'score', num: num.trim() });
+                    }
+                });
+
+                // Cek radio dokumen pendukung yang belum dipilih
+                form.querySelectorAll('[data-indicator-id]').forEach(function (row) {
+                    var radios = row.querySelectorAll('input[type="radio"][name^="doc_choice_"]');
+                    if (radios.length === 0) return;
+                    var anyChecked = Array.from(radios).some(function (r) { return r.checked; });
+                    if (!anyChecked) {
+                        var num   = (row.querySelector('span.w-6') || {}).textContent || '?';
+                        var group = row.querySelector('.doc-radio-group');
+                        emptyFields.push({ el: group || radios[0], type: 'doc', num: num.trim() });
+                    }
+                });
+
+                if (emptyFields.length === 0) return;
+
+                e.preventDefault();
+
+                // Highlight semua field yang kosong
+                emptyFields.forEach(function (f) {
+                    if (f.type === 'doc') {
+                        // Highlight border merah pada semua card radio
+                        var cards = f.el.querySelectorAll ? f.el.querySelectorAll('.doc-radio-card') : [];
+                        cards.forEach(function (card) {
+                            card.classList.add('border-red-400', 'ring-1', 'ring-red-300');
+                            card.classList.remove('border-gray-200');
+                        });
+                    } else {
+                        f.el.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                        var clearFn = function handler() {
+                            var isEmpty = f.type === 'score' ? f.el.value === '' : f.el.value.trim() === '';
+                            if (!isEmpty) {
+                                f.el.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
+                                f.el.removeEventListener('input', handler);
+                                f.el.removeEventListener('change', handler);
+                            }
+                        };
+                        f.el.addEventListener('input', clearFn);
+                        f.el.addEventListener('change', clearFn);
+                    }
+                });
+
+                // Scroll ke field pertama yang bermasalah
+                emptyFields[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (emptyFields[0].el.focus) emptyFields[0].el.focus();
+
+                // Tampilkan pesan error
+                var existing = document.getElementById('submit-error-msg');
+                if (existing) existing.remove();
+
+                var descCount  = emptyFields.filter(function (f) { return f.type === 'desc'; }).length;
+                var scoreCount = emptyFields.filter(function (f) { return f.type === 'score'; }).length;
+                var docCount   = emptyFields.filter(function (f) { return f.type === 'doc'; }).length;
+                var parts = [];
+                if (descCount > 0)  parts.push(descCount + ' kolom deskripsi');
+                if (scoreCount > 0) parts.push(scoreCount + ' skor mandiri');
+                if (docCount > 0)   parts.push(docCount + ' dokumen pendukung');
+
+                var msg = document.createElement('p');
+                msg.id = 'submit-error-msg';
+                msg.className = 'text-sm text-red-600 font-medium text-center';
+                msg.textContent = 'Masih ada ' + parts.join(', ') + ' yang belum diisi. Semua indikator wajib dilengkapi sebelum submit.';
+
+                var btnSubmit = form.querySelector('button[type="submit"]');
+                btnSubmit.parentNode.insertBefore(msg, btnSubmit.parentNode.firstChild);
+            });
+        })();
+
+        // Interaksi radio card dokumen pendukung
+        (function () {
+            document.querySelectorAll('.doc-choice-radio').forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    var indId    = this.dataset.ind;
+                    var fieldDiv = document.getElementById('doc_field_' + indId);
+                    var nodocDiv = document.getElementById('doc_nodoc_' + indId);
+                    var group    = this.closest('.doc-radio-group');
+
+                    if (this.value === 'gdrive') {
+                        if (fieldDiv) fieldDiv.classList.remove('hidden');
+                        if (nodocDiv) nodocDiv.classList.add('hidden');
+                        // Kosongkan hidden input NO_DOC jika ada
+                        if (nodocDiv) {
+                            var hi = nodocDiv.querySelector('input[type="hidden"]');
+                            if (hi) hi.disabled = true;
+                        }
+                    } else {
+                        if (fieldDiv) fieldDiv.classList.add('hidden');
+                        if (nodocDiv) nodocDiv.classList.remove('hidden');
+                        // Re-enable hidden input
+                        if (nodocDiv) {
+                            var hi = nodocDiv.querySelector('input[type="hidden"]');
+                            if (hi) hi.disabled = false;
+                        }
+                        // Kosongkan URL input
+                        if (fieldDiv) {
+                            var urlInput = fieldDiv.querySelector('input[type="url"]');
+                            if (urlInput) urlInput.value = '';
+                        }
+                    }
+
+                    // Update visual card aktif
+                    if (group) {
+                        group.querySelectorAll('.doc-radio-card').forEach(function (card) {
+                            var r = card.querySelector('input[type="radio"]');
+                            if (!r) return;
+                            if (r.checked) {
+                                card.classList.add('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
+                                card.classList.remove('border-gray-200', 'bg-white', 'ring-red-300', 'border-red-300');
+                            } else {
+                                card.classList.remove('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
+                                card.classList.add('border-gray-200', 'bg-white');
+                            }
+                        });
+                    }
+                });
             });
         })();
     </script>

@@ -430,6 +430,12 @@ class AssessmentController extends Controller
             return back()->with('error', 'Tidak ada jawaban untuk dikirim.');
         }
 
+        // Validasi: semua indikator aktif wajib diisi (description tidak boleh kosong)
+        $validationError = $this->validateAllIndicatorsFilled($assessment, $entries, $userId);
+        if ($validationError) {
+            return back()->with('error', $validationError)->withInput();
+        }
+
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
             foreach ($entries as $indicatorId => $data) {
                 $description = $data['description'] ?? '';
@@ -491,6 +497,12 @@ class AssessmentController extends Controller
             return back()->with('error', 'Tidak ada jawaban untuk dikirim.');
         }
 
+        // Validasi: semua indikator aktif wajib diisi (description tidak boleh kosong)
+        $validationError = $this->validateAllIndicatorsFilled($assessment, $entries, $userId);
+        if ($validationError) {
+            return back()->with('error', $validationError)->withInput();
+        }
+
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
             foreach ($entries as $indicatorId => $data) {
                 $description = $data['description'] ?? '';
@@ -530,5 +542,57 @@ class AssessmentController extends Controller
 
         return redirect()->route('kecamatan.assessment.index')
             ->with('success', 'Revisi assessment berhasil dikirim ulang.');
+    }
+
+    /**
+     * Validasi bahwa semua indikator aktif sudah diisi (description tidak kosong).
+     * Indikator yang sudah VALIDATED dan tidak dalam status revisi dikecualikan.
+     *
+     * @return string|null Pesan error, atau null jika valid
+     */
+    private function validateAllIndicatorsFilled(Assessment $assessment, array $entries, int $userId): ?string
+    {
+        // Kumpulkan semua indicator_id aktif untuk assessment ini
+        $activeIndicatorIds = AssessmentIndicator::whereHas('category', fn ($q) =>
+            $q->where('assessment_id', $assessment->id)->where('is_active', true)
+        )
+            ->where('is_active', true)
+            ->pluck('id')
+            ->toArray();
+
+        // Indikator yang sudah VALIDATED (dikecualikan dari kewajiban isi ulang)
+        $validatedIndicatorIds = SelfAssessment::where('submitted_by_id', $userId)
+            ->where('periode', $assessment->periode)
+            ->where('status', 'VALIDATED')
+            ->whereIn('indicator_id', $activeIndicatorIds)
+            ->pluck('indicator_id')
+            ->toArray();
+
+        $missingIndicators = [];
+
+        foreach ($activeIndicatorIds as $indicatorId) {
+            // Lewati indikator yang sudah tervalidasi
+            if (in_array($indicatorId, $validatedIndicatorIds, true)) {
+                continue;
+            }
+
+            $description   = trim($entries[$indicatorId]['description'] ?? '');
+            $score         = $entries[$indicatorId]['score'] ?? '';
+            $supportingDoc = $entries[$indicatorId]['supporting_doc'] ?? '';
+
+            // supporting_doc wajib: harus diisi dengan URL atau nilai 'NO_DOC'
+            $docMissing = ($supportingDoc === '');
+
+            if ($description === '' || $score === '' || $docMissing) {
+                $missingIndicators[] = $indicatorId;
+            }
+        }
+
+        if (empty($missingIndicators)) {
+            return null;
+        }
+
+        $count = count($missingIndicators);
+        return "Masih ada {$count} indikator yang belum lengkap. Deskripsi, skor mandiri, dan dokumen pendukung wajib diisi sebelum submit.";
     }
 }
