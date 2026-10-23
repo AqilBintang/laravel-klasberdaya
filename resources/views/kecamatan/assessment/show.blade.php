@@ -530,8 +530,8 @@
 
     <script id="rubrik-data" type="application/json">
     {!! json_encode(
-        collect($rubricByIndicator)->map(fn ($item) => [
-            'indicator_id'   => $item->indicator_id,
+        collect($rubricByIndicator)->map(fn ($item, $activeIndicatorId) => [
+            'indicator_id'   => $activeIndicatorId,
             'indicator_text' => $item->indicator->indicator,
             'indicator_num'  => $item->indicator->number,
             'score1'         => $item->score1,
