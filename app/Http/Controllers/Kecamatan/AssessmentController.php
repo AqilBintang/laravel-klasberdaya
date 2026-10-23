@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\AssessmentCategory;
 use App\Models\AssessmentIndicator;
+use App\Models\AssessmentRubric;
 use App\Models\AssessmentVersion;
 use App\Models\IndicatorChange;
 use App\Models\SelfAssessment;
@@ -338,6 +339,15 @@ class AssessmentController extends Controller
             }
         }
 
+        // Load rubrik panduan untuk assessment ini (jika ada)
+        $rubric = AssessmentRubric::with([
+            'items',
+            'items.indicator:id,category_id,number,indicator',
+            'items.indicator.category:id,assessment_id,code,name,order',
+        ])
+            ->where('assessment_id', $id)
+            ->first();
+
         return view('kecamatan.assessment.show', compact(
             'id',
             'assessment',
@@ -346,7 +356,8 @@ class AssessmentController extends Controller
             'hasUpdate',
             'newIndicatorIds',
             'validatorRevisionIndicatorIds',
-            'validatorRejectedIndicatorIds'
+            'validatorRejectedIndicatorIds',
+            'rubric'
         ));
     }
 

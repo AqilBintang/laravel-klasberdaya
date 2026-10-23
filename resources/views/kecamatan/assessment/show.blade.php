@@ -9,7 +9,280 @@
       - $newIndicatorIds: array<int>
       - $validatorRevisionIndicatorIds : array<int>
       - $validatorRejectedIndicatorIds : array<int>
+      - $rubric         : AssessmentRubric|null — rubrik panduan (optional)
 --}}
+
+{{-- ── Drawer rubrik + backdrop dipush ke @stack('scripts') agar render di body level, --}}
+{{-- di luar <main overflow-y-auto> sehingga fixed positioning bekerja dengan benar.    --}}
+@if (!empty($rubric))
+@php
+    $rubricByIndicator = [];
+    foreach ($rubric->items as $item) {
+        $rubricByIndicator[$item->indicator_id] = $item;
+    }
+    $rubricCatGroups = [];
+    foreach ($rubric->items as $item) {
+        $cat = $item->indicator->category;
+        $key = $cat->id;
+        if (!isset($rubricCatGroups[$key])) {
+            $rubricCatGroups[$key] = ['code' => $cat->code, 'name' => $cat->name, 'order' => $cat->order, 'items' => []];
+        }
+        $rubricCatGroups[$key]['items'][] = $item;
+    }
+    usort($rubricCatGroups, fn ($a, $b) => $a['order'] <=> $b['order']);
+@endphp
+
+@push('scripts')
+{{-- Backdrop --}}
+<div id="rubrik-backdrop"
+     class="fixed inset-0 bg-black/40 z-40 hidden"
+     style="opacity:0;transition:opacity .3s"
+     aria-hidden="true"></div>
+
+{{-- Drawer panel --}}
+<aside id="rubrik-drawer"
+       role="dialog"
+       aria-modal="true"
+       aria-label="Panduan Rubrik Penilaian"
+       style="transition:transform .3s ease-in-out"
+       class="fixed top-0 right-0 h-full w-full sm:w-[480px] lg:w-[520px]
+              bg-white shadow-2xl z-50 flex flex-col translate-x-full">
+
+    {{-- Drawer header --}}
+    <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 bg-sky-600 shrink-0">
+        <div class="flex items-center gap-2 text-white">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168
+                         18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5
+                         5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746
+                         0-3.332.477-4.5 1.253"/>
+            </svg>
+            <div>
+                <p class="font-semibold text-sm leading-tight">Panduan Rubrik</p>
+                <p class="text-sky-200 text-xs leading-tight">{{ Str::title($rubric->title) }}</p>
+            </div>
+        </div>
+        <button type="button" id="btn-close-rubrik"
+                class="rounded-lg p-1.5 text-sky-200 hover:bg-sky-700 hover:text-white transition-colors"
+                aria-label="Tutup panduan rubrik">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    {{-- Tab --}}
+    <div class="flex border-b border-slate-200 shrink-0 bg-white">
+        <button type="button" id="tab-aktif"
+                class="rubrik-tab flex-1 py-2.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600"
+                data-tab="aktif">Indikator Aktif</button>
+        <button type="button" id="tab-semua"
+                class="rubrik-tab flex-1 py-2.5 text-xs font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700"
+                data-tab="semua">Semua Rubrik</button>
+    </div>
+
+    {{-- Body scrollable --}}
+    <div class="flex-1 overflow-y-auto">
+
+        {{-- Panel: Indikator Aktif --}}
+        <div id="panel-aktif" class="rubrik-panel p-4">
+            <div id="rubrik-aktif-empty" class="flex flex-col items-center justify-center py-16 text-center">
+                <svg class="w-10 h-10 text-slate-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
+                </svg>
+                <p class="text-sm text-slate-400 font-medium">Klik tombol "Rubrik"</p>
+                <p class="text-xs text-slate-400 mt-1">di samping indikator untuk melihat panduan skor</p>
+            </div>
+            <div id="rubrik-aktif-content" class="hidden space-y-3"></div>
+        </div>
+
+        {{-- Panel: Semua Rubrik --}}
+        <div id="panel-semua" class="rubrik-panel hidden">
+            <div class="divide-y divide-slate-100">
+                @foreach ($rubricCatGroups as $cat)
+                    <div>
+                        <div class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-4 py-2.5">
+                            <p class="text-xs font-semibold text-slate-700">{{ $cat['code'] }}. {{ $cat['name'] }}</p>
+                        </div>
+                        <div class="divide-y divide-slate-100">
+                            @foreach ($cat['items'] as $item)
+                                <div class="px-4 py-3" data-rubrik-row="{{ $item->indicator_id }}">
+                                    <p class="text-xs font-semibold text-slate-700 mb-2 leading-snug">
+                                        <span class="text-slate-400 mr-1">{{ $item->indicator->number }}.</span>
+                                        {{ $item->indicator->indicator }}
+                                    </p>
+                                    <div class="grid grid-cols-2 gap-1.5">
+                                        @foreach ([1 => $item->score1, 2 => $item->score2, 3 => $item->score3, 4 => $item->score4] as $skor => $desc)
+                                            @if ($desc)
+                                                <div class="rounded-lg border border-slate-200 p-2">
+                                                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-600 text-white text-xs font-bold mb-1">{{ $skor }}</span>
+                                                    <p class="text-xs text-slate-600 leading-snug">{{ $desc }}</p>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+    </div>
+</aside>
+
+{{-- Data rubrik (JSON) --}}
+<script id="rubrik-data" type="application/json">
+{!! json_encode(
+    collect($rubricByIndicator)->map(fn ($item) => [
+        'indicator_id'   => $item->indicator_id,
+        'indicator_text' => $item->indicator->indicator,
+        'indicator_num'  => $item->indicator->number,
+        'score1'         => $item->score1,
+        'score2'         => $item->score2,
+        'score3'         => $item->score3,
+        'score4'         => $item->score4,
+    ])->values()
+) !!}
+</script>
+
+<script>
+(function () {
+    var drawer   = document.getElementById('rubrik-drawer');
+    var backdrop = document.getElementById('rubrik-backdrop');
+    var btnOpen  = document.getElementById('btn-open-rubrik');
+    var btnClose = document.getElementById('btn-close-rubrik');
+
+    if (!drawer) return;
+
+    // Parse data rubrik
+    var rubrikMap = {};
+    try {
+        var raw = JSON.parse(document.getElementById('rubrik-data').textContent);
+        raw.forEach(function (item) { rubrikMap[item.indicator_id] = item; });
+    } catch (e) {}
+
+    function openDrawer() {
+        drawer.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        setTimeout(function () { backdrop.style.opacity = '1'; }, 10);
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDrawer() {
+        drawer.classList.add('translate-x-full');
+        backdrop.style.opacity = '0';
+        setTimeout(function () { backdrop.classList.add('hidden'); }, 300);
+        document.body.style.overflow = '';
+    }
+
+    if (btnOpen) btnOpen.addEventListener('click', openDrawer);
+    if (btnClose) btnClose.addEventListener('click', closeDrawer);
+    if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) {
+            closeDrawer();
+        }
+    });
+
+    // Tab switching
+    var tabs   = document.querySelectorAll('.rubrik-tab');
+    var panels = document.querySelectorAll('.rubrik-panel');
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            var target = tab.dataset.tab;
+            tabs.forEach(function (t) {
+                var active = t.dataset.tab === target;
+                t.classList.toggle('text-sky-700',       active);
+                t.classList.toggle('border-sky-600',     active);
+                t.classList.toggle('font-semibold',      active);
+                t.classList.toggle('text-slate-500',     !active);
+                t.classList.toggle('border-transparent', !active);
+            });
+            panels.forEach(function (p) {
+                p.classList.toggle('hidden', p.id !== 'panel-' + target);
+            });
+        });
+    });
+
+    // Tampilkan rubrik satu indikator
+    function showRubrikForIndicator(indicatorId) {
+        var item      = rubrikMap[indicatorId];
+        var emptyEl   = document.getElementById('rubrik-aktif-empty');
+        var contentEl = document.getElementById('rubrik-aktif-content');
+
+        if (!item) {
+            emptyEl.classList.remove('hidden');
+            contentEl.classList.add('hidden');
+            contentEl.innerHTML = '';
+            return;
+        }
+
+        var scores = [
+            { skor: 1, desc: item.score1 },
+            { skor: 2, desc: item.score2 },
+            { skor: 3, desc: item.score3 },
+            { skor: 4, desc: item.score4 },
+        ].filter(function (s) { return s.desc; });
+
+        var html = '<div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 mb-3">'
+            + '<p class="text-xs text-sky-600 font-semibold mb-0.5">Indikator ' + item.indicator_num + '</p>'
+            + '<p class="text-sm text-sky-900 font-medium leading-snug">' + escHtml(item.indicator_text) + '</p>'
+            + '</div><div class="space-y-2">';
+
+        scores.forEach(function (s) {
+            html += '<div class="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">'
+                + '<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold shrink-0">' + s.skor + '</span>'
+                + '<p class="text-sm text-slate-700 leading-snug">' + escHtml(s.desc) + '</p>'
+                + '</div>';
+        });
+        html += '</div>';
+
+        contentEl.innerHTML = html;
+        emptyEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+    }
+
+    // Highlight baris di tab "Semua"
+    function highlightRubrikRow(indicatorId) {
+        document.querySelectorAll('[data-rubrik-row]').forEach(function (el) {
+            el.classList.remove('bg-sky-50', 'ring-1', 'ring-sky-200');
+        });
+        var row = document.querySelector('[data-rubrik-row="' + indicatorId + '"]');
+        if (row) {
+            row.classList.add('bg-sky-50', 'ring-1', 'ring-sky-200');
+            row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Tombol "Rubrik" per indikator
+    document.querySelectorAll('.btn-rubrik-indicator').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var indicatorId = parseInt(this.dataset.rubrikIndicator, 10);
+            document.getElementById('tab-aktif').click();
+            showRubrikForIndicator(indicatorId);
+            highlightRubrikRow(indicatorId);
+            openDrawer();
+        });
+    });
+})();
+</script>
+@endpush
+@endif
+
 <x-layouts.kecamatan pageTitle="Isi Assessment">
 
     <div class="space-y-6">
@@ -30,6 +303,22 @@
                     <h2 class="text-2xl font-bold text-gray-900">{{ $assessment->title }}</h2>
                     <p class="mt-1 text-sm text-gray-500">Periode: {{ $assessment->periode }}</p>
                 </div>
+
+                {{-- Tombol buka panduan rubrik --}}
+                @if (!empty($rubric))
+                <button type="button" id="btn-open-rubrik"
+                        class="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50
+                               px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100 transition-colors shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168
+                                 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5
+                                 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746
+                                 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    Panduan Rubrik
+                </button>
+                @endif
             </div>
             @endisset
         </div>
@@ -156,7 +445,6 @@
                         <div class="divide-y divide-slate-100">
                             @foreach ($indicators as $indicator)
                                 @php
-                                    // Cari jawaban yang sudah ada untuk indikator ini
                                     $entry       = $existingEntries?->firstWhere('indicator_id', $indicator->id);
                                     $validation  = $entry?->validations->sortByDesc('validated_at')->first();
                                     $isNew       = in_array($indicator->id, $newIndicatorIds ?? []);
@@ -171,7 +459,7 @@
                                         default     => '',
                                     };
                                 @endphp
-                                <div class="px-5 py-4 {{ $rowBg }}">
+                                <div class="px-5 py-4 {{ $rowBg }}" data-indicator-id="{{ $indicator->id }}">
                                     <div class="flex items-start gap-3 mb-3">
                                         {{-- Nomor --}}
                                         <span class="w-6 text-center text-xs font-bold text-slate-400 mt-0.5 shrink-0">
@@ -196,6 +484,18 @@
                                                     @endif
                                                     @if ($isLocked)
                                                         <span class="rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">✓ Tervalidasi</span>
+                                                    @endif
+
+                                                    {{-- Tombol lihat rubrik per indikator --}}
+                                                    @if (!empty($rubric))
+                                                        <button type="button"
+                                                                data-rubrik-indicator="{{ $indicator->id }}"
+                                                                class="btn-rubrik-indicator inline-flex items-center gap-1 rounded-full border border-sky-200 bg-white px-2 py-0.5 text-xs text-sky-600 hover:bg-sky-50 transition-colors">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                                            </svg>
+                                                            Rubrik
+                                                        </button>
                                                     @endif
                                                 </div>
                                             </div>
@@ -254,7 +554,6 @@
                                                     @endfor
                                                 </select>
 
-                                                {{-- Skor tervalidasi --}}
                                                 @if ($validation?->validated_score !== null)
                                                     <p class="mt-1 text-xs text-sky-600">
                                                         Skor validator: <strong>{{ $validation->validated_score }}</strong>
@@ -345,29 +644,35 @@
     @push('scripts')
     <script>
         // Auto-save draft via AJAX
-        document.getElementById('btn-draft')?.addEventListener('click', async function () {
-            const form     = document.getElementById('form-assessment')
-            const formData = new FormData(form)
-            formData.append('_method', 'POST')
+        (function () {
+            var btnDraft = document.getElementById('btn-draft');
+            if (!btnDraft) return;
 
-            const assessmentId = '{{ $assessment->id ?? 0 }}'
-            try {
-                const res = await fetch(`/kecamatan/assessment/${assessmentId}/draft`, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-                    body: formData,
-                })
-                const data = await res.json()
-                // Flash mini di dalam tombol
-                const btn = this
-                const orig = btn.innerHTML
-                btn.textContent = '✓ Draft Tersimpan'
-                btn.classList.add('text-green-700', 'border-green-300')
-                setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-700', 'border-green-300') }, 2000)
-            } catch (e) {
-                alert('Gagal menyimpan draft. Coba lagi.')
-            }
-        })
+            btnDraft.addEventListener('click', async function () {
+                var form       = document.getElementById('form-assessment');
+                var formData   = new FormData(form);
+                var assessmentId = '{{ $assessment->id ?? 0 }}';
+
+                try {
+                    var res  = await fetch('/kecamatan/assessment/' + assessmentId + '/draft', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                        body: formData,
+                    });
+                    await res.json();
+                    var btn  = this;
+                    var orig = btn.innerHTML;
+                    btn.textContent = '✓ Draft Tersimpan';
+                    btn.classList.add('text-green-700', 'border-green-300');
+                    setTimeout(function () {
+                        btn.innerHTML = orig;
+                        btn.classList.remove('text-green-700', 'border-green-300');
+                    }, 2000);
+                } catch (e) {
+                    alert('Gagal menyimpan draft. Coba lagi.');
+                }
+            });
+        })();
     </script>
     @endpush
 
