@@ -12,276 +12,25 @@
       - $rubric         : AssessmentRubric|null — rubrik panduan (optional)
 --}}
 
-{{-- ── Drawer rubrik + backdrop dipush ke @stack('scripts') agar render di body level, --}}
-{{-- di luar <main overflow-y-auto> sehingga fixed positioning bekerja dengan benar.    --}}
-@if (!empty($rubric))
 @php
+    // Persiapan data rubrik (jika ada) — dilakukan di luar loop view
     $rubricByIndicator = [];
-    foreach ($rubric->items as $item) {
-        $rubricByIndicator[$item->indicator_id] = $item;
-    }
-    $rubricCatGroups = [];
-    foreach ($rubric->items as $item) {
-        $cat = $item->indicator->category;
-        $key = $cat->id;
-        if (!isset($rubricCatGroups[$key])) {
-            $rubricCatGroups[$key] = ['code' => $cat->code, 'name' => $cat->name, 'order' => $cat->order, 'items' => []];
+    $rubricCatGroups   = [];
+    if (!empty($rubric)) {
+        foreach ($rubric->items as $item) {
+            $rubricByIndicator[$item->indicator_id] = $item;
         }
-        $rubricCatGroups[$key]['items'][] = $item;
+        foreach ($rubric->items as $item) {
+            $cat = $item->indicator->category;
+            $key = $cat->id;
+            if (!isset($rubricCatGroups[$key])) {
+                $rubricCatGroups[$key] = ['code' => $cat->code, 'name' => $cat->name, 'order' => $cat->order, 'items' => []];
+            }
+            $rubricCatGroups[$key]['items'][] = $item;
+        }
+        usort($rubricCatGroups, fn ($a, $b) => $a['order'] <=> $b['order']);
     }
-    usort($rubricCatGroups, fn ($a, $b) => $a['order'] <=> $b['order']);
 @endphp
-
-@push('scripts')
-{{-- Backdrop --}}
-<div id="rubrik-backdrop"
-     class="fixed inset-0 bg-black/40 z-40 hidden"
-     style="opacity:0;transition:opacity .3s"
-     aria-hidden="true"></div>
-
-{{-- Drawer panel --}}
-<aside id="rubrik-drawer"
-       role="dialog"
-       aria-modal="true"
-       aria-label="Panduan Rubrik Penilaian"
-       style="transition:transform .3s ease-in-out"
-       class="fixed top-0 right-0 h-full w-full sm:w-[480px] lg:w-[520px]
-              bg-white shadow-2xl z-50 flex flex-col translate-x-full">
-
-    {{-- Drawer header --}}
-    <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 bg-sky-600 shrink-0">
-        <div class="flex items-center gap-2 text-white">
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168
-                         18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5
-                         5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746
-                         0-3.332.477-4.5 1.253"/>
-            </svg>
-            <div>
-                <p class="font-semibold text-sm leading-tight">Panduan Rubrik</p>
-                <p class="text-sky-200 text-xs leading-tight">{{ Str::title($rubric->title) }}</p>
-            </div>
-        </div>
-        <button type="button" id="btn-close-rubrik"
-                class="rounded-lg p-1.5 text-sky-200 hover:bg-sky-700 hover:text-white transition-colors"
-                aria-label="Tutup panduan rubrik">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-        </button>
-    </div>
-
-    {{-- Tab --}}
-    <div class="flex border-b border-slate-200 shrink-0 bg-white">
-        <button type="button" id="tab-aktif"
-                class="rubrik-tab flex-1 py-2.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600"
-                data-tab="aktif">Indikator Aktif</button>
-        <button type="button" id="tab-semua"
-                class="rubrik-tab flex-1 py-2.5 text-xs font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700"
-                data-tab="semua">Semua Rubrik</button>
-    </div>
-
-    {{-- Body scrollable --}}
-    <div class="flex-1 overflow-y-auto">
-
-        {{-- Panel: Indikator Aktif --}}
-        <div id="panel-aktif" class="rubrik-panel p-4">
-            <div id="rubrik-aktif-empty" class="flex flex-col items-center justify-center py-16 text-center">
-                <svg class="w-10 h-10 text-slate-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
-                </svg>
-                <p class="text-sm text-slate-400 font-medium">Klik tombol "Rubrik"</p>
-                <p class="text-xs text-slate-400 mt-1">di samping indikator untuk melihat panduan skor</p>
-            </div>
-            <div id="rubrik-aktif-content" class="hidden space-y-3"></div>
-        </div>
-
-        {{-- Panel: Semua Rubrik --}}
-        <div id="panel-semua" class="rubrik-panel hidden">
-            <div class="divide-y divide-slate-100">
-                @foreach ($rubricCatGroups as $cat)
-                    <div>
-                        <div class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-4 py-2.5">
-                            <p class="text-xs font-semibold text-slate-700">{{ $cat['code'] }}. {{ $cat['name'] }}</p>
-                        </div>
-                        <div class="divide-y divide-slate-100">
-                            @foreach ($cat['items'] as $item)
-                                <div class="px-4 py-3" data-rubrik-row="{{ $item->indicator_id }}">
-                                    <p class="text-xs font-semibold text-slate-700 mb-2 leading-snug">
-                                        <span class="text-slate-400 mr-1">{{ $item->indicator->number }}.</span>
-                                        {{ $item->indicator->indicator }}
-                                    </p>
-                                    <div class="grid grid-cols-2 gap-1.5">
-                                        @foreach ([1 => $item->score1, 2 => $item->score2, 3 => $item->score3, 4 => $item->score4] as $skor => $desc)
-                                            @if ($desc)
-                                                <div class="rounded-lg border border-slate-200 p-2">
-                                                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-600 text-white text-xs font-bold mb-1">{{ $skor }}</span>
-                                                    <p class="text-xs text-slate-600 leading-snug">{{ $desc }}</p>
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
-    </div>
-</aside>
-
-{{-- Data rubrik (JSON) --}}
-<script id="rubrik-data" type="application/json">
-{!! json_encode(
-    collect($rubricByIndicator)->map(fn ($item) => [
-        'indicator_id'   => $item->indicator_id,
-        'indicator_text' => $item->indicator->indicator,
-        'indicator_num'  => $item->indicator->number,
-        'score1'         => $item->score1,
-        'score2'         => $item->score2,
-        'score3'         => $item->score3,
-        'score4'         => $item->score4,
-    ])->values()
-) !!}
-</script>
-
-<script>
-(function () {
-    var drawer   = document.getElementById('rubrik-drawer');
-    var backdrop = document.getElementById('rubrik-backdrop');
-    var btnOpen  = document.getElementById('btn-open-rubrik');
-    var btnClose = document.getElementById('btn-close-rubrik');
-
-    if (!drawer) return;
-
-    // Parse data rubrik
-    var rubrikMap = {};
-    try {
-        var raw = JSON.parse(document.getElementById('rubrik-data').textContent);
-        raw.forEach(function (item) { rubrikMap[item.indicator_id] = item; });
-    } catch (e) {}
-
-    function openDrawer() {
-        drawer.classList.remove('translate-x-full');
-        backdrop.classList.remove('hidden');
-        setTimeout(function () { backdrop.style.opacity = '1'; }, 10);
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeDrawer() {
-        drawer.classList.add('translate-x-full');
-        backdrop.style.opacity = '0';
-        setTimeout(function () { backdrop.classList.add('hidden'); }, 300);
-        document.body.style.overflow = '';
-    }
-
-    if (btnOpen) btnOpen.addEventListener('click', openDrawer);
-    if (btnClose) btnClose.addEventListener('click', closeDrawer);
-    if (backdrop) backdrop.addEventListener('click', closeDrawer);
-
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) {
-            closeDrawer();
-        }
-    });
-
-    // Tab switching
-    var tabs   = document.querySelectorAll('.rubrik-tab');
-    var panels = document.querySelectorAll('.rubrik-panel');
-
-    tabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            var target = tab.dataset.tab;
-            tabs.forEach(function (t) {
-                var active = t.dataset.tab === target;
-                t.classList.toggle('text-sky-700',       active);
-                t.classList.toggle('border-sky-600',     active);
-                t.classList.toggle('font-semibold',      active);
-                t.classList.toggle('text-slate-500',     !active);
-                t.classList.toggle('border-transparent', !active);
-            });
-            panels.forEach(function (p) {
-                p.classList.toggle('hidden', p.id !== 'panel-' + target);
-            });
-        });
-    });
-
-    // Tampilkan rubrik satu indikator
-    function showRubrikForIndicator(indicatorId) {
-        var item      = rubrikMap[indicatorId];
-        var emptyEl   = document.getElementById('rubrik-aktif-empty');
-        var contentEl = document.getElementById('rubrik-aktif-content');
-
-        if (!item) {
-            emptyEl.classList.remove('hidden');
-            contentEl.classList.add('hidden');
-            contentEl.innerHTML = '';
-            return;
-        }
-
-        var scores = [
-            { skor: 1, desc: item.score1 },
-            { skor: 2, desc: item.score2 },
-            { skor: 3, desc: item.score3 },
-            { skor: 4, desc: item.score4 },
-        ].filter(function (s) { return s.desc; });
-
-        var html = '<div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 mb-3">'
-            + '<p class="text-xs text-sky-600 font-semibold mb-0.5">Indikator ' + item.indicator_num + '</p>'
-            + '<p class="text-sm text-sky-900 font-medium leading-snug">' + escHtml(item.indicator_text) + '</p>'
-            + '</div><div class="space-y-2">';
-
-        scores.forEach(function (s) {
-            html += '<div class="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">'
-                + '<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold shrink-0">' + s.skor + '</span>'
-                + '<p class="text-sm text-slate-700 leading-snug">' + escHtml(s.desc) + '</p>'
-                + '</div>';
-        });
-        html += '</div>';
-
-        contentEl.innerHTML = html;
-        emptyEl.classList.add('hidden');
-        contentEl.classList.remove('hidden');
-    }
-
-    // Highlight baris di tab "Semua"
-    function highlightRubrikRow(indicatorId) {
-        document.querySelectorAll('[data-rubrik-row]').forEach(function (el) {
-            el.classList.remove('bg-sky-50', 'ring-1', 'ring-sky-200');
-        });
-        var row = document.querySelector('[data-rubrik-row="' + indicatorId + '"]');
-        if (row) {
-            row.classList.add('bg-sky-50', 'ring-1', 'ring-sky-200');
-            row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }
-
-    function escHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
-    // Tombol "Rubrik" per indikator
-    document.querySelectorAll('.btn-rubrik-indicator').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var indicatorId = parseInt(this.dataset.rubrikIndicator, 10);
-            document.getElementById('tab-aktif').click();
-            showRubrikForIndicator(indicatorId);
-            highlightRubrikRow(indicatorId);
-            openDrawer();
-        });
-    });
-})();
-</script>
-@endpush
-@endif
 
 <x-layouts.kecamatan pageTitle="Isi Assessment">
 
@@ -338,7 +87,7 @@
         @isset($assessment)
 
         @if (!empty($blocked))
-            {{-- ── Blocked: assessment sedang diperbarui, user belum mulai ── --}}
+            {{-- ── Blocked ── --}}
             <div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50 py-20 text-center px-6">
                 <svg class="w-12 h-12 text-amber-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -358,7 +107,6 @@
             </div>
         @else
 
-        {{-- ── Banner: Assessment sedang diperbarui ───────────────────── --}}
         @if ($assessment->status === 'REVISION')
             <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
                 <div class="flex items-start gap-3">
@@ -367,15 +115,12 @@
                     </svg>
                     <div class="text-sm">
                         <p class="font-medium text-amber-800">Assessment Sedang Diperbarui</p>
-                        <p class="text-amber-700 mt-0.5">
-                            Admin sedang melakukan pembaruan pada assessment ini. Anda dapat menyelesaikan pengisian versi saat ini.
-                        </p>
+                        <p class="text-amber-700 mt-0.5">Admin sedang melakukan pembaruan pada assessment ini. Anda dapat menyelesaikan pengisian versi saat ini.</p>
                     </div>
                 </div>
             </div>
         @endif
 
-        {{-- ── Banner: Ada update tersedia (HAS_UPDATE) ───────────────────── --}}
         @if (!empty($hasUpdate) && empty($needsRevision))
             <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
                 <div class="flex items-start gap-3">
@@ -395,7 +140,6 @@
             </div>
         @endif
 
-        {{-- ── Banner: Perlu revisi karena update admin (NEEDS_REVISION) ─── --}}
         @if (!empty($needsRevision))
             <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
                 <div class="flex items-start gap-3">
@@ -416,7 +160,7 @@
             </div>
         @endif
 
-        {{-- ── Form Pengisian per Kategori ─────────────────────────────── --}}
+        {{-- ── Form ── --}}
         <form method="POST"
               action="{{ route('kecamatan.assessment.submit', $assessment->id) }}"
               id="form-assessment">
@@ -425,12 +169,9 @@
             <div class="space-y-6">
 
                 @foreach ($assessment->categories->sortBy('order') as $category)
-                    @php
-                        $indicators = $category->indicators->sortBy('number');
-                    @endphp
-                    <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                    @php $indicators = $category->indicators->sortBy('number'); @endphp
 
-                        {{-- Category header --}}
+                    <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
                         <div class="flex items-center gap-3 px-5 py-4 bg-slate-50 border-b border-slate-200">
                             <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-600 text-xs font-bold text-white shrink-0">
                                 {{ $category->code }}
@@ -441,32 +182,34 @@
                             </div>
                         </div>
 
-                        {{-- Indicators --}}
                         <div class="divide-y divide-slate-100">
                             @foreach ($indicators as $indicator)
                                 @php
-                                    $entry       = $existingEntries?->firstWhere('indicator_id', $indicator->id);
-                                    $validation  = $entry?->validations->sortByDesc('validated_at')->first();
-                                    $isNew       = in_array($indicator->id, $newIndicatorIds ?? []);
-                                    $isRevision  = in_array($indicator->id, $validatorRevisionIndicatorIds ?? []);
-                                    $isRejected  = in_array($indicator->id, $validatorRejectedIndicatorIds ?? []);
-                                    $isLocked    = $entry && $entry->status === 'VALIDATED' && !$isRevision && !$isRejected;
-
-                                    $rowBg = match(true) {
+                                    $entry      = $existingEntries?->firstWhere('indicator_id', $indicator->id);
+                                    $validation = $entry?->validations->sortByDesc('validated_at')->first();
+                                    $isNew      = in_array($indicator->id, $newIndicatorIds ?? []);
+                                    $isRevision = in_array($indicator->id, $validatorRevisionIndicatorIds ?? []);
+                                    $isRejected = in_array($indicator->id, $validatorRejectedIndicatorIds ?? []);
+                                    $isLocked   = $entry && $entry->status === 'VALIDATED' && !$isRevision && !$isRejected;
+                                    $rowBg      = match(true) {
                                         $isRejected => 'bg-red-50',
                                         $isRevision => 'bg-yellow-50',
                                         $isNew      => 'bg-blue-50',
                                         default     => '',
                                     };
+                                    $savedDoc  = $entry?->supporting_doc ?? null;
+                                    $docChoice = null;
+                                    if ($savedDoc === 'NO_DOC') { $docChoice = 'no_doc'; }
+                                    elseif ($savedDoc !== null && $savedDoc !== '') { $docChoice = 'gdrive'; }
                                 @endphp
+
                                 <div class="px-5 py-4 {{ $rowBg }}" data-indicator-id="{{ $indicator->id }}">
+
+                                    {{-- Header indikator --}}
                                     <div class="flex items-start gap-3 mb-3">
-                                        {{-- Nomor --}}
                                         <span class="w-6 text-center text-xs font-bold text-slate-400 mt-0.5 shrink-0">
                                             {{ $indicator->number }}
                                         </span>
-
-                                        {{-- Pertanyaan + label --}}
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-start gap-2 flex-wrap">
                                                 <p class="text-sm text-slate-800 font-medium leading-snug flex-1">
@@ -485,8 +228,6 @@
                                                     @if ($isLocked)
                                                         <span class="rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">✓ Tervalidasi</span>
                                                     @endif
-
-                                                    {{-- Tombol lihat rubrik per indikator --}}
                                                     @if (!empty($rubric))
                                                         <button type="button"
                                                                 data-rubrik-indicator="{{ $indicator->id }}"
@@ -499,12 +240,9 @@
                                                     @endif
                                                 </div>
                                             </div>
-
                                             @if ($indicator->description)
                                                 <p class="mt-1 text-xs text-slate-500">{{ $indicator->description }}</p>
                                             @endif
-
-                                            {{-- Catatan validator --}}
                                             @if ($validation?->notes)
                                                 <div class="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
                                                     <p class="text-xs text-amber-600 font-medium">💬 Catatan validator:</p>
@@ -518,14 +256,12 @@
                                     <div class="ml-9 space-y-3">
                                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
-                                            {{-- Deskripsi / Bukti --}}
+                                            {{-- Deskripsi --}}
                                             <div class="sm:col-span-2">
                                                 <label for="desc_{{ $indicator->id }}"
                                                        class="block text-xs font-medium text-gray-600 mb-1">
                                                     Deskripsi
-                                                    @if (!$isLocked)
-                                                        <span class="text-red-500" aria-hidden="true">*</span>
-                                                    @endif
+                                                    @if (!$isLocked)<span class="text-red-500" aria-hidden="true">*</span>@endif
                                                 </label>
                                                 <textarea id="desc_{{ $indicator->id }}"
                                                           name="entries[{{ $indicator->id }}][description]"
@@ -537,14 +273,12 @@
                                                                  disabled:bg-gray-50 disabled:text-gray-500 resize-none">{{ $entry?->description }}</textarea>
                                             </div>
 
-                                            {{-- Skor mandiri --}}
+                                            {{-- Skor --}}
                                             <div>
                                                 <label for="score_{{ $indicator->id }}"
                                                        class="block text-xs font-medium text-gray-600 mb-1">
                                                     Skor (1–{{ $indicator->max_score }})
-                                                    @if (!$isLocked)
-                                                        <span class="text-red-500" aria-hidden="true">*</span>
-                                                    @endif
+                                                    @if (!$isLocked)<span class="text-red-500" aria-hidden="true">*</span>@endif
                                                 </label>
                                                 <select id="score_{{ $indicator->id }}"
                                                         name="entries[{{ $indicator->id }}][score]"
@@ -556,13 +290,11 @@
                                                         <option value="" disabled selected>-- Pilih Skor --</option>
                                                     @endif
                                                     @for ($s = 1; $s <= $indicator->max_score; $s++)
-                                                        <option value="{{ $s }}"
-                                                            {{ ($entry?->score ?? null) == $s ? 'selected' : '' }}>
+                                                        <option value="{{ $s }}" {{ ($entry?->score ?? null) == $s ? 'selected' : '' }}>
                                                             {{ $s }}
                                                         </option>
                                                     @endfor
                                                 </select>
-
                                                 @if ($validation?->validated_score !== null)
                                                     <p class="mt-1 text-xs text-sky-600">
                                                         Skor validator: <strong>{{ $validation->validated_score }}</strong>
@@ -571,29 +303,17 @@
                                             </div>
                                         </div>
 
-                                        {{-- Dokumen pendukung --}}
-                                        @php
-                                            $savedDoc  = $entry?->supporting_doc ?? null;
-                                            $docChoice = null;
-                                            if ($savedDoc === 'NO_DOC') {
-                                                $docChoice = 'no_doc';
-                                            } elseif ($savedDoc !== null && $savedDoc !== '') {
-                                                $docChoice = 'gdrive';
-                                            }
-                                        @endphp
+                                        {{-- Status Bukti Pendukung --}}
                                         <div>
                                             <p class="block text-xs font-medium text-gray-700 mb-0.5">
                                                 Status Bukti Pendukung
-                                                @if (!$isLocked)
-                                                    <span class="text-red-500" aria-hidden="true">*</span>
-                                                @endif
+                                                @if (!$isLocked)<span class="text-red-500" aria-hidden="true">*</span>@endif
                                             </p>
                                             @if (!$isLocked)
                                                 <p class="text-xs text-gray-400 mb-2">Pilih salah satu berikut. Pilihan ini wajib ditentukan sebelum formulir dikirim.</p>
                                             @endif
 
                                             @if ($isLocked)
-                                                {{-- Tampilan readonly --}}
                                                 @if ($savedDoc === 'NO_DOC')
                                                     <p class="text-xs text-gray-500 italic">Belum terdapat kegiatan — link dokumen tidak diperlukan.</p>
                                                 @elseif ($savedDoc)
@@ -608,10 +328,8 @@
                                                     <p class="text-xs text-gray-400 italic">Tidak ada dokumen.</p>
                                                 @endif
                                             @else
-                                                {{-- Radio cards --}}
                                                 <div class="space-y-2 doc-radio-group" data-ind="{{ $indicator->id }}">
 
-                                                    {{-- Pilihan 1: Google Drive --}}
                                                     <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
                                                                   {{ $docChoice === 'gdrive' ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-400' : 'border-gray-200 bg-white hover:border-gray-300' }}">
                                                         <input type="radio"
@@ -626,7 +344,6 @@
                                                         </div>
                                                     </label>
 
-                                                    {{-- Field URL Google Drive (muncul jika pilih gdrive) --}}
                                                     <div id="doc_field_{{ $indicator->id }}"
                                                          class="{{ $docChoice === 'gdrive' ? '' : 'hidden' }} pl-3">
                                                         <input type="url"
@@ -638,7 +355,6 @@
                                                                       focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                                                     </div>
 
-                                                    {{-- Pilihan 2: Belum terdapat kegiatan --}}
                                                     <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
                                                                   {{ $docChoice === 'no_doc' ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-400' : 'border-gray-200 bg-white hover:border-gray-300' }}">
                                                         <input type="radio"
@@ -653,7 +369,6 @@
                                                         </div>
                                                     </label>
 
-                                                    {{-- Info box: muncul jika pilih no_doc --}}
                                                     <div id="doc_nodoc_{{ $indicator->id }}"
                                                          class="{{ $docChoice === 'no_doc' ? '' : 'hidden' }}">
                                                         <input type="hidden"
@@ -672,14 +387,11 @@
                                 </div>
                             @endforeach
                         </div>
-
                     </div>
                 @endforeach
 
-                {{-- ── Tombol Aksi ──────────────────────────────────────── --}}
+                {{-- Tombol Aksi --}}
                 <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-
-                    {{-- Simpan Draft --}}
                     <button type="button" id="btn-draft"
                             class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
                                    border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700
@@ -689,8 +401,6 @@
                         </svg>
                         Simpan Draft
                     </button>
-
-                    {{-- Submit --}}
                     <button type="submit"
                             class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
                                    bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white
@@ -719,180 +429,358 @@
 
     </div>
 
+    {{-- ══════════════════════════════════════════════════════════════
+         PUSH KE @stack('scripts') — di dalam x-layouts.kecamatan
+         Drawer rubrik di-render di body level via stack, bukan di
+         dalam <main> yang overflow-y-auto.
+    ══════════════════════════════════════════════════════════════ --}}
     @push('scripts')
+
+    {{-- ── Drawer backdrop & panel ── --}}
+    @if (!empty($rubric))
+    <div id="rubrik-backdrop"
+         class="fixed inset-0 bg-black/40 z-40 hidden"
+         style="opacity:0;transition:opacity .3s"
+         aria-hidden="true"></div>
+
+    <aside id="rubrik-drawer"
+           role="dialog" aria-modal="true" aria-label="Panduan Rubrik Penilaian"
+           style="transition:transform .3s ease-in-out"
+           class="fixed top-0 right-0 h-full w-full sm:w-[480px] lg:w-[520px]
+                  bg-white shadow-2xl z-50 flex flex-col translate-x-full">
+
+        <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 bg-sky-600 shrink-0">
+            <div class="flex items-center gap-2 text-white">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168
+                             18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5
+                             5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746
+                             0-3.332.477-4.5 1.253"/>
+                </svg>
+                <div>
+                    <p class="font-semibold text-sm leading-tight">Panduan Rubrik</p>
+                    <p class="text-sky-200 text-xs leading-tight">{{ Str::title($rubric->title) }}</p>
+                </div>
+            </div>
+            <button type="button" id="btn-close-rubrik"
+                    class="rounded-lg p-1.5 text-sky-200 hover:bg-sky-700 hover:text-white transition-colors"
+                    aria-label="Tutup panduan rubrik">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="flex border-b border-slate-200 shrink-0 bg-white">
+            <button type="button" id="tab-aktif" data-tab="aktif"
+                    class="rubrik-tab flex-1 py-2.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600">
+                Indikator Aktif
+            </button>
+            <button type="button" id="tab-semua" data-tab="semua"
+                    class="rubrik-tab flex-1 py-2.5 text-xs font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700">
+                Semua Rubrik
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+            <div id="panel-aktif" class="rubrik-panel p-4">
+                <div id="rubrik-aktif-empty" class="flex flex-col items-center justify-center py-16 text-center">
+                    <svg class="w-10 h-10 text-slate-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
+                    </svg>
+                    <p class="text-sm text-slate-400 font-medium">Klik tombol "Rubrik"</p>
+                    <p class="text-xs text-slate-400 mt-1">di samping indikator untuk melihat panduan skor</p>
+                </div>
+                <div id="rubrik-aktif-content" class="hidden space-y-3"></div>
+            </div>
+
+            <div id="panel-semua" class="rubrik-panel hidden">
+                <div class="divide-y divide-slate-100">
+                    @foreach ($rubricCatGroups as $cat)
+                        <div>
+                            <div class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-4 py-2.5">
+                                <p class="text-xs font-semibold text-slate-700">{{ $cat['code'] }}. {{ $cat['name'] }}</p>
+                            </div>
+                            <div class="divide-y divide-slate-100">
+                                @foreach ($cat['items'] as $item)
+                                    <div class="px-4 py-3" data-rubrik-row="{{ $item->indicator_id }}">
+                                        <p class="text-xs font-semibold text-slate-700 mb-2 leading-snug">
+                                            <span class="text-slate-400 mr-1">{{ $item->indicator->number }}.</span>
+                                            {{ $item->indicator->indicator }}
+                                        </p>
+                                        <div class="grid grid-cols-2 gap-1.5">
+                                            @foreach ([1 => $item->score1, 2 => $item->score2, 3 => $item->score3, 4 => $item->score4] as $skor => $desc)
+                                                @if ($desc)
+                                                    <div class="rounded-lg border border-slate-200 p-2">
+                                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-600 text-white text-xs font-bold mb-1">{{ $skor }}</span>
+                                                        <p class="text-xs text-slate-600 leading-snug">{{ $desc }}</p>
+                                                    </div>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <script id="rubrik-data" type="application/json">
+    {!! json_encode(
+        collect($rubricByIndicator)->map(fn ($item) => [
+            'indicator_id'   => $item->indicator_id,
+            'indicator_text' => $item->indicator->indicator,
+            'indicator_num'  => $item->indicator->number,
+            'score1'         => $item->score1,
+            'score2'         => $item->score2,
+            'score3'         => $item->score3,
+            'score4'         => $item->score4,
+        ])->values()
+    ) !!}
+    </script>
+    @endif
+
     <script>
-        // Auto-save draft via AJAX
-        (function () {
-            var btnDraft = document.getElementById('btn-draft');
-            if (!btnDraft) return;
-
+    (function () {
+        // ── Draft save ──────────────────────────────────────────────
+        var btnDraft = document.getElementById('btn-draft');
+        if (btnDraft) {
             btnDraft.addEventListener('click', async function () {
-                var form       = document.getElementById('form-assessment');
-                var formData   = new FormData(form);
+                var form = document.getElementById('form-assessment');
+                var formData = new FormData(form);
                 var assessmentId = '{{ $assessment->id ?? 0 }}';
-
                 try {
-                    var res  = await fetch('/kecamatan/assessment/' + assessmentId + '/draft', {
+                    await fetch('/kecamatan/assessment/' + assessmentId + '/draft', {
                         method: 'POST',
                         headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
                         body: formData,
                     });
-                    await res.json();
-                    var btn  = this;
-                    var orig = btn.innerHTML;
-                    btn.textContent = '✓ Draft Tersimpan';
-                    btn.classList.add('text-green-700', 'border-green-300');
+                    var orig = this.innerHTML;
+                    this.textContent = '✓ Draft Tersimpan';
+                    this.classList.add('text-green-700', 'border-green-300');
+                    var btn = this;
                     setTimeout(function () {
                         btn.innerHTML = orig;
                         btn.classList.remove('text-green-700', 'border-green-300');
                     }, 2000);
-                } catch (e) {
-                    alert('Gagal menyimpan draft. Coba lagi.');
-                }
+                } catch (e) { alert('Gagal menyimpan draft. Coba lagi.'); }
             });
-        })();
+        }
 
-        // Validasi mandatory sebelum submit
-        (function () {
-            var form = document.getElementById('form-assessment');
-            if (!form) return;
-
+        // ── Validasi submit ─────────────────────────────────────────
+        var form = document.getElementById('form-assessment');
+        if (form) {
             form.addEventListener('submit', function (e) {
-                var emptyFields = [];
+                var empty = [];
 
-                // Cek textarea deskripsi yang belum diisi
                 form.querySelectorAll('textarea[name*="[description]"]:not([disabled])').forEach(function (ta) {
                     if (ta.value.trim() === '') {
-                        var row  = ta.closest('[data-indicator-id]');
-                        var num  = row ? (row.querySelector('span.w-6') || {}).textContent || '?' : '?';
-                        emptyFields.push({ el: ta, type: 'desc', num: num.trim() });
+                        var row = ta.closest('[data-indicator-id]');
+                        empty.push({ el: ta, type: 'desc' });
                     }
                 });
 
-                // Cek select skor yang masih placeholder (value kosong)
                 form.querySelectorAll('select[name*="[score]"]:not([disabled])').forEach(function (sel) {
-                    if (sel.value === '') {
-                        var row = sel.closest('[data-indicator-id]');
-                        var num = row ? (row.querySelector('span.w-6') || {}).textContent || '?' : '?';
-                        emptyFields.push({ el: sel, type: 'score', num: num.trim() });
-                    }
+                    if (sel.value === '') empty.push({ el: sel, type: 'score' });
                 });
 
-                // Cek radio dokumen pendukung yang belum dipilih
                 form.querySelectorAll('[data-indicator-id]').forEach(function (row) {
                     var radios = row.querySelectorAll('input[type="radio"][name^="doc_choice_"]');
-                    if (radios.length === 0) return;
-                    var anyChecked = Array.from(radios).some(function (r) { return r.checked; });
-                    if (!anyChecked) {
-                        var num   = (row.querySelector('span.w-6') || {}).textContent || '?';
+                    if (!radios.length) return;
+                    if (!Array.from(radios).some(function (r) { return r.checked; })) {
                         var group = row.querySelector('.doc-radio-group');
-                        emptyFields.push({ el: group || radios[0], type: 'doc', num: num.trim() });
+                        empty.push({ el: group || radios[0], type: 'doc' });
                     }
                 });
 
-                if (emptyFields.length === 0) return;
-
+                if (!empty.length) return;
                 e.preventDefault();
 
-                // Highlight semua field yang kosong
-                emptyFields.forEach(function (f) {
+                empty.forEach(function (f) {
                     if (f.type === 'doc') {
-                        // Highlight border merah pada semua card radio
-                        var cards = f.el.querySelectorAll ? f.el.querySelectorAll('.doc-radio-card') : [];
-                        cards.forEach(function (card) {
-                            card.classList.add('border-red-400', 'ring-1', 'ring-red-300');
-                            card.classList.remove('border-gray-200');
+                        (f.el.querySelectorAll('.doc-radio-card') || []).forEach(function (c) {
+                            c.classList.add('border-red-400', 'ring-1', 'ring-red-300');
+                            c.classList.remove('border-gray-200');
                         });
                     } else {
                         f.el.classList.add('border-red-400', 'ring-2', 'ring-red-100');
-                        var clearFn = function handler() {
-                            var isEmpty = f.type === 'score' ? f.el.value === '' : f.el.value.trim() === '';
-                            if (!isEmpty) {
-                                f.el.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
-                                f.el.removeEventListener('input', handler);
-                                f.el.removeEventListener('change', handler);
-                            }
+                        var clear = function () {
+                            var bad = f.type === 'score' ? f.el.value === '' : f.el.value.trim() === '';
+                            if (!bad) { f.el.classList.remove('border-red-400', 'ring-2', 'ring-red-100'); }
                         };
-                        f.el.addEventListener('input', clearFn);
-                        f.el.addEventListener('change', clearFn);
+                        f.el.addEventListener('input', clear);
+                        f.el.addEventListener('change', clear);
                     }
                 });
 
-                // Scroll ke field pertama yang bermasalah
-                emptyFields[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                if (emptyFields[0].el.focus) emptyFields[0].el.focus();
+                empty[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (empty[0].el.focus) empty[0].el.focus();
 
-                // Tampilkan pesan error
                 var existing = document.getElementById('submit-error-msg');
                 if (existing) existing.remove();
-
-                var descCount  = emptyFields.filter(function (f) { return f.type === 'desc'; }).length;
-                var scoreCount = emptyFields.filter(function (f) { return f.type === 'score'; }).length;
-                var docCount   = emptyFields.filter(function (f) { return f.type === 'doc'; }).length;
+                var dc = empty.filter(function(f){return f.type==='desc';}).length;
+                var sc = empty.filter(function(f){return f.type==='score';}).length;
+                var pc = empty.filter(function(f){return f.type==='doc';}).length;
                 var parts = [];
-                if (descCount > 0)  parts.push(descCount + ' kolom deskripsi');
-                if (scoreCount > 0) parts.push(scoreCount + ' skor mandiri');
-                if (docCount > 0)   parts.push(docCount + ' dokumen pendukung');
-
+                if (dc) parts.push(dc + ' kolom deskripsi');
+                if (sc) parts.push(sc + ' skor');
+                if (pc) parts.push(pc + ' dokumen pendukung');
                 var msg = document.createElement('p');
                 msg.id = 'submit-error-msg';
                 msg.className = 'text-sm text-red-600 font-medium text-center';
-                msg.textContent = 'Masih ada ' + parts.join(', ') + ' yang belum diisi. Semua indikator wajib dilengkapi sebelum submit.';
-
+                msg.textContent = 'Masih ada ' + parts.join(', ') + ' yang belum diisi.';
                 var btnSubmit = form.querySelector('button[type="submit"]');
                 btnSubmit.parentNode.insertBefore(msg, btnSubmit.parentNode.firstChild);
             });
-        })();
+        }
 
-        // Interaksi radio card dokumen pendukung
+        // ── Radio doc cards ─────────────────────────────────────────
+        document.querySelectorAll('.doc-choice-radio').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                var indId    = this.dataset.ind;
+                var fieldDiv = document.getElementById('doc_field_' + indId);
+                var nodocDiv = document.getElementById('doc_nodoc_' + indId);
+                var group    = this.closest('.doc-radio-group');
+
+                if (this.value === 'gdrive') {
+                    if (fieldDiv) fieldDiv.classList.remove('hidden');
+                    if (nodocDiv) {
+                        nodocDiv.classList.add('hidden');
+                        var hi = nodocDiv.querySelector('input[type="hidden"]');
+                        if (hi) hi.disabled = true;
+                    }
+                } else {
+                    if (fieldDiv) {
+                        fieldDiv.classList.add('hidden');
+                        var url = fieldDiv.querySelector('input[type="url"]');
+                        if (url) url.value = '';
+                    }
+                    if (nodocDiv) {
+                        nodocDiv.classList.remove('hidden');
+                        var hi = nodocDiv.querySelector('input[type="hidden"]');
+                        if (hi) hi.disabled = false;
+                    }
+                }
+
+                if (group) {
+                    group.querySelectorAll('.doc-radio-card').forEach(function (card) {
+                        var r = card.querySelector('input[type="radio"]');
+                        if (!r) return;
+                        if (r.checked) {
+                            card.classList.add('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
+                            card.classList.remove('border-gray-200', 'bg-white', 'border-red-400', 'ring-red-300');
+                        } else {
+                            card.classList.remove('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
+                            card.classList.add('border-gray-200', 'bg-white');
+                        }
+                    });
+                }
+            });
+        });
+
+        // ── Rubrik drawer ───────────────────────────────────────────
+        @if (!empty($rubric))
         (function () {
-            document.querySelectorAll('.doc-choice-radio').forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    var indId    = this.dataset.ind;
-                    var fieldDiv = document.getElementById('doc_field_' + indId);
-                    var nodocDiv = document.getElementById('doc_nodoc_' + indId);
-                    var group    = this.closest('.doc-radio-group');
+            var drawer   = document.getElementById('rubrik-drawer');
+            var backdrop = document.getElementById('rubrik-backdrop');
+            var btnOpen  = document.getElementById('btn-open-rubrik');
+            var btnClose = document.getElementById('btn-close-rubrik');
+            if (!drawer) return;
 
-                    if (this.value === 'gdrive') {
-                        if (fieldDiv) fieldDiv.classList.remove('hidden');
-                        if (nodocDiv) nodocDiv.classList.add('hidden');
-                        // Kosongkan hidden input NO_DOC jika ada
-                        if (nodocDiv) {
-                            var hi = nodocDiv.querySelector('input[type="hidden"]');
-                            if (hi) hi.disabled = true;
-                        }
-                    } else {
-                        if (fieldDiv) fieldDiv.classList.add('hidden');
-                        if (nodocDiv) nodocDiv.classList.remove('hidden');
-                        // Re-enable hidden input
-                        if (nodocDiv) {
-                            var hi = nodocDiv.querySelector('input[type="hidden"]');
-                            if (hi) hi.disabled = false;
-                        }
-                        // Kosongkan URL input
-                        if (fieldDiv) {
-                            var urlInput = fieldDiv.querySelector('input[type="url"]');
-                            if (urlInput) urlInput.value = '';
-                        }
-                    }
+            var rubrikMap = {};
+            try {
+                JSON.parse(document.getElementById('rubrik-data').textContent)
+                    .forEach(function (i) { rubrikMap[i.indicator_id] = i; });
+            } catch(e) {}
 
-                    // Update visual card aktif
-                    if (group) {
-                        group.querySelectorAll('.doc-radio-card').forEach(function (card) {
-                            var r = card.querySelector('input[type="radio"]');
-                            if (!r) return;
-                            if (r.checked) {
-                                card.classList.add('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
-                                card.classList.remove('border-gray-200', 'bg-white', 'ring-red-300', 'border-red-300');
-                            } else {
-                                card.classList.remove('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
-                                card.classList.add('border-gray-200', 'bg-white');
-                            }
-                        });
-                    }
+            function openDrawer() {
+                drawer.classList.remove('translate-x-full');
+                backdrop.classList.remove('hidden');
+                setTimeout(function () { backdrop.style.opacity = '1'; }, 10);
+                document.body.style.overflow = 'hidden';
+            }
+            function closeDrawer() {
+                drawer.classList.add('translate-x-full');
+                backdrop.style.opacity = '0';
+                setTimeout(function () { backdrop.classList.add('hidden'); }, 300);
+                document.body.style.overflow = '';
+            }
+
+            if (btnOpen)  btnOpen.addEventListener('click', openDrawer);
+            if (btnClose) btnClose.addEventListener('click', closeDrawer);
+            if (backdrop) backdrop.addEventListener('click', closeDrawer);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) closeDrawer();
+            });
+
+            // Tab switching
+            document.querySelectorAll('.rubrik-tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    var t = this.dataset.tab;
+                    document.querySelectorAll('.rubrik-tab').forEach(function (x) {
+                        var on = x.dataset.tab === t;
+                        x.classList.toggle('text-sky-700', on);
+                        x.classList.toggle('border-sky-600', on);
+                        x.classList.toggle('font-semibold', on);
+                        x.classList.toggle('text-slate-500', !on);
+                        x.classList.toggle('border-transparent', !on);
+                    });
+                    document.querySelectorAll('.rubrik-panel').forEach(function (p) {
+                        p.classList.toggle('hidden', p.id !== 'panel-' + t);
+                    });
+                });
+            });
+
+            function escHtml(s) {
+                return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            }
+
+            function showRubrikForIndicator(id) {
+                var item    = rubrikMap[id];
+                var emptyEl = document.getElementById('rubrik-aktif-empty');
+                var contEl  = document.getElementById('rubrik-aktif-content');
+                if (!item) { emptyEl.classList.remove('hidden'); contEl.classList.add('hidden'); return; }
+
+                var scores = [{s:1,d:item.score1},{s:2,d:item.score2},{s:3,d:item.score3},{s:4,d:item.score4}].filter(function(x){return x.d;});
+                var html = '<div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 mb-3">'
+                    + '<p class="text-xs text-sky-600 font-semibold mb-0.5">Indikator ' + item.indicator_num + '</p>'
+                    + '<p class="text-sm text-sky-900 font-medium leading-snug">' + escHtml(item.indicator_text) + '</p>'
+                    + '</div><div class="space-y-2">';
+                scores.forEach(function (x) {
+                    html += '<div class="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">'
+                        + '<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold shrink-0">' + x.s + '</span>'
+                        + '<p class="text-sm text-slate-700 leading-snug">' + escHtml(x.d) + '</p></div>';
+                });
+                html += '</div>';
+                contEl.innerHTML = html;
+                emptyEl.classList.add('hidden');
+                contEl.classList.remove('hidden');
+            }
+
+            function highlightRow(id) {
+                document.querySelectorAll('[data-rubrik-row]').forEach(function (el) {
+                    el.classList.remove('bg-sky-50','ring-1','ring-sky-200');
+                });
+                var row = document.querySelector('[data-rubrik-row="' + id + '"]');
+                if (row) { row.classList.add('bg-sky-50','ring-1','ring-sky-200'); row.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+            }
+
+            document.querySelectorAll('.btn-rubrik-indicator').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var id = parseInt(this.dataset.rubrikIndicator, 10);
+                    document.getElementById('tab-aktif').click();
+                    showRubrikForIndicator(id);
+                    highlightRow(id);
+                    openDrawer();
                 });
             });
         })();
+        @endif
+    })();
     </script>
     @endpush
 
