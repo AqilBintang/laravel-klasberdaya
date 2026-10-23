@@ -18,12 +18,20 @@ class DashboardController extends Controller
         $userId = $user->id;
 
         // ─── Statistik self-assessment user ini ───────────────────────────
+        // Hitung hanya indikator pada assessment yang aktif (PUBLISHED/REVISION)
+        // untuk menghindari penggandaan dari periode/assessment berbeda.
         $totalMenunggu   = SelfAssessment::where('submitted_by_id', $userId)
             ->where('status', 'SUBMITTED')
+            ->whereHas('indicator', fn ($q) => $q->where('is_active', true)
+                ->whereHas('assessment', fn ($q2) => $q2->whereIn('status', ['PUBLISHED', 'REVISION']))
+            )
             ->count();
 
         $totalDivalidasi = SelfAssessment::where('submitted_by_id', $userId)
             ->where('status', 'VALIDATED')
+            ->whereHas('indicator', fn ($q) => $q->where('is_active', true)
+                ->whereHas('assessment', fn ($q2) => $q2->whereIn('status', ['PUBLISHED', 'REVISION']))
+            )
             ->count();
 
         // ─── Assessment yang perlu tindakan kecamatan ─────────────────────
