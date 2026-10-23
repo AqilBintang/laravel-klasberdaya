@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -38,7 +39,14 @@ class AuthenticatedSessionController extends Controller
 
     public function storeKecamatan(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        try {
+            $request->authenticate();
+        } catch (ValidationException) {
+            return redirect()->route('kecamatan.login')
+                ->withInput($request->only('email'))
+                ->with('error', 'Email atau password salah.');
+        }
+
         $request->session()->regenerate();
 
         // Halaman ini khusus kecamatan (USER).
@@ -49,7 +57,7 @@ class AuthenticatedSessionController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
             return redirect()->route('kecamatan.login')
-                ->with('admin_error', true);
+                ->with('error', 'Email atau password salah.');
         }
 
         return $this->redirectByRole();
@@ -72,7 +80,14 @@ class AuthenticatedSessionController extends Controller
 
     public function storeAdmin(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        try {
+            $request->authenticate();
+        } catch (ValidationException) {
+            return redirect()->route('admin.login')
+                ->withInput($request->only('email'))
+                ->with('error', 'Email atau password salah.');
+        }
+
         $request->session()->regenerate();
 
         // Halaman ini untuk ADMIN, SUPER_ADMIN, dan VALIDATOR.

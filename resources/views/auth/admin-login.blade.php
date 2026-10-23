@@ -24,13 +24,6 @@
             {{-- Card --}}
             <div class="bg-white rounded-2xl shadow-lg p-8">
 
-                {{-- Session error (dari middleware redirect / flash) --}}
-                @if (session('error'))
-                    <div class="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
                 <form method="POST" action="{{ route('admin.login.store') }}" class="space-y-5">
                     @csrf
 
@@ -50,11 +43,8 @@
                             autocomplete="email"
                             class="w-full rounded-xl border px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400
                                    focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20
-                                   {{ $errors->has('email') ? 'border-red-400' : 'border-gray-300' }}"
+                                   border-gray-300"
                         >
-                        @error('email')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
                     </div>
 
                     {{-- Password --}}
@@ -72,8 +62,7 @@
                                 autocomplete="current-password"
                                 class="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-sm text-gray-900
                                        placeholder:text-gray-400 focus:border-indigo-400 focus:outline-none
-                                       focus:ring-2 focus:ring-indigo-400/20
-                                       {{ $errors->has('password') ? 'border-red-400' : 'border-gray-300' }}"
+                                       focus:ring-2 focus:ring-indigo-400/20"
                             >
                             {{-- Toggle show/hide password --}}
                             <button
@@ -93,17 +82,7 @@
                                 </svg>
                             </button>
                         </div>
-                        @error('password')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
                     </div>
-
-                    {{-- Validation errors umum --}}
-                    @if ($errors->any() && !$errors->has('email') && !$errors->has('password'))
-                        <div class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                            {{ $errors->first() }}
-                        </div>
-                    @endif
 
                     {{-- Submit --}}
                     <button

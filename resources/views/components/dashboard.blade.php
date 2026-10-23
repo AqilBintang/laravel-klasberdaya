@@ -109,32 +109,15 @@
         {{-- Page Content --}}
         <main class="flex-1 overflow-y-auto overscroll-none bg-gray-100 p-4 md:p-6 lg:p-8">
 
-            {{-- Flash: success --}}
-            @if (session('success'))
-                <div role="alert" class="mb-4 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                    <svg class="w-4 h-4 shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    {{ session('success') }}
-                </div>
-            @endif
-
-            {{-- Flash: error --}}
-            @if (session('error'))
-                <div role="alert" class="mb-4 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                    <svg class="w-4 h-4 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    {{ session('error') }}
-                </div>
-            @endif
-
             {{ $slot }}
         </main>
     </div>
 </div>
 
 @stack('scripts')
+
+{{-- Toast notifikasi auto-dismiss (tipe 1: tidak perlu respons user) --}}
+<x-toast-container />
 
 <script>
 (function () {

@@ -24,6 +24,7 @@
 </head>
 <body class="font-sans antialiased">
     {{ $slot }}
+    <x-toast-container />
     @stack('scripts')
 </body>
 </html>
