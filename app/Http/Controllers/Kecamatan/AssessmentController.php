@@ -352,9 +352,13 @@ class AssessmentController extends Controller
         // Rubrik mungkin dibuat saat versi lama sehingga indicator_id-nya berbeda dengan
         // indikator versi aktif yang sedang ditampilkan di form. Solusi: gunakan
         // "categoryCode:indicatorNumber" sebagai kunci logis antar versi.
+        //
+        // Penting: gunakan $categories (sudah difilter per versi aktif user) sebagai
+        // target remap — BUKAN query ulang tanpa filter versi — agar ID yang dihasilkan
+        // benar-benar cocok dengan indicator_id yang dirender di form.
         $rubricByIndicator = [];
         if ($rubric) {
-            // Bangun lookup: "code:number" → rubric item (O(n) satu kali)
+            // Bangun lookup: "code:number" → rubric item dari rubrik (O(n) satu kali)
             $rubricLookup = [];
             foreach ($rubric->items as $item) {
                 $code   = $item->indicator->category->code ?? '';
@@ -362,12 +366,12 @@ class AssessmentController extends Controller
                 $rubricLookup["{$code}:{$number}"] = $item;
             }
 
-            // Map ke indicator_id versi aktif yang sedang ditampilkan di form (O(n))
+            // Map ke indicator_id versi aktif yang sedang ditampilkan di form.
+            // $categories sudah difilter per version_id yang benar untuk user ini.
             foreach ($categories as $cat) {
                 foreach ($cat->indicators as $ind) {
                     $key = "{$cat->code}:{$ind->number}";
                     if (isset($rubricLookup[$key])) {
-                        // Simpan dengan indicator_id versi aktif sebagai kunci
                         $rubricByIndicator[$ind->id] = $rubricLookup[$key];
                     }
                 }
