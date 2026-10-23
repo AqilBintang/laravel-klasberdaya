@@ -2,24 +2,23 @@
     kecamatan/assessment/show.blade.php
     Form pengisian self-assessment per indikator untuk satu assessment.
     Data yang diharapkan dari AssessmentController::show($id):
-      - $assessment     : Assessment (dengan categories.indicators, status, periode)
-      - $existingEntries: Collection<SelfAssessment> — jawaban yang sudah ada
-      - $needsRevision  : bool — ada catatan revisi dari validator
-      - $hasUpdate      : bool — ada indikator baru setelah update admin
-      - $newIndicatorIds: array<int>
+      - $assessment        : Assessment (dengan categories.indicators, status, periode)
+      - $existingEntries   : Collection<SelfAssessment> — jawaban yang sudah ada
+      - $needsRevision     : bool — ada catatan revisi dari validator
+      - $hasUpdate         : bool — ada indikator baru setelah update admin
+      - $newIndicatorIds   : array<int>
       - $validatorRevisionIndicatorIds : array<int>
       - $validatorRejectedIndicatorIds : array<int>
-      - $rubric         : AssessmentRubric|null — rubrik panduan (optional)
+      - $rubric            : AssessmentRubric|null — rubrik panduan (optional)
+      - $rubricByIndicator : array<int, RubricItem> — keyed by indicator_id versi aktif
 --}}
 
 @php
-    // Persiapan data rubrik (jika ada) — dilakukan di luar loop view
-    $rubricByIndicator = [];
-    $rubricCatGroups   = [];
+    // $rubricByIndicator sudah di-remap di controller berdasarkan category_code:number
+    // sehingga key-nya cocok dengan indicator_id versi aktif yang ditampilkan di form.
+    // Di sini hanya perlu menyusun $rubricCatGroups untuk tab "Semua Rubrik" di drawer.
+    $rubricCatGroups = [];
     if (!empty($rubric)) {
-        foreach ($rubric->items as $item) {
-            $rubricByIndicator[$item->indicator_id] = $item;
-        }
         foreach ($rubric->items as $item) {
             $cat = $item->indicator->category;
             $key = $cat->id;
