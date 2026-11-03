@@ -278,10 +278,10 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 @php
                 $levels = [
-                    ['level'=>'Rintisan',  'range'=>'Skor ≤ 14,41', 'accent'=>'bg-red-400',   'desc'=>'Mulai menunjukkan inisiatif pemberdayaan namun masih memerlukan pendampingan intensif.'],
-                    ['level'=>'Berkembang','range'=>'Skor ≤ 29,13', 'accent'=>'bg-amber-400', 'desc'=>'Telah memiliki sistem pemberdayaan dasar dan mulai menjalankan program secara konsisten.'],
-                    ['level'=>'Maju',      'range'=>'Skor ≤ 43,23', 'accent'=>'bg-blue-400',  'desc'=>'Telah memiliki sistem dan program pemberdayaan yang berjalan dengan baik dan terstruktur.'],
-                    ['level'=>'Unggul',    'range'=>'Skor ≥ 43,24', 'accent'=>'bg-green-500', 'desc'=>'Kecamatan dengan kapasitas pemberdayaan optimal dan menjadi rujukan daerah sekitarnya.'],
+                    ['level'=>'Rintisan',  'accent'=>'bg-red-400'],
+                    ['level'=>'Berkembang','accent'=>'bg-amber-400'],
+                    ['level'=>'Maju',      'accent'=>'bg-blue-400'],
+                    ['level'=>'Unggul',    'accent'=>'bg-green-500'],
                 ];
                 @endphp
                 @foreach ($levels as $item)
@@ -289,8 +289,6 @@
                     <div class="w-1 shrink-0 rounded-full {{ $item['accent'] }}" aria-hidden="true"></div>
                     <div class="flex flex-col gap-1">
                         <p class="text-sm font-semibold text-gray-900">{{ $item['level'] }}</p>
-                        <p class="text-xs text-gray-400">{{ $item['range'] }}</p>
-                        <p class="mt-1 text-xs text-gray-600 leading-relaxed">{{ $item['desc'] }}</p>
                     </div>
                 </div>
                 @endforeach
