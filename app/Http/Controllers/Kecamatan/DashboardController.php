@@ -18,21 +18,25 @@ class DashboardController extends Controller
         $userId = $user->id;
 
         // ─── Statistik self-assessment user ini ───────────────────────────
-        // Hitung hanya indikator pada assessment yang aktif (PUBLISHED/REVISION)
-        // untuk menghindari penggandaan dari periode/assessment berbeda.
-        $totalMenunggu   = SelfAssessment::where('submitted_by_id', $userId)
-            ->where('status', 'SUBMITTED')
+        // Hitung per indikator (distinct indicator_id), bukan per baris entry.
+        // Karena satu indikator bisa memiliki beberapa entry (versi lama vs baru),
+        // kita ambil status terbaru per indicator_id melalui subquery MAX(id).
+        $latestEntrySubQuery = SelfAssessment::selectRaw('MAX(id) as id')
+            ->where('submitted_by_id', $userId)
             ->whereHas('indicator', fn ($q) => $q->where('is_active', true)
                 ->whereHas('assessment', fn ($q2) => $q2->whereIn('status', ['PUBLISHED', 'REVISION']))
             )
-            ->count();
+            ->groupBy('indicator_id');
 
-        $totalDivalidasi = SelfAssessment::where('submitted_by_id', $userId)
+        $totalMenunggu   = SelfAssessment::whereIn('id', $latestEntrySubQuery)
+            ->where('status', 'SUBMITTED')
+            ->distinct('indicator_id')
+            ->count('indicator_id');
+
+        $totalDivalidasi = SelfAssessment::whereIn('id', $latestEntrySubQuery)
             ->where('status', 'VALIDATED')
-            ->whereHas('indicator', fn ($q) => $q->where('is_active', true)
-                ->whereHas('assessment', fn ($q2) => $q2->whereIn('status', ['PUBLISHED', 'REVISION']))
-            )
-            ->count();
+            ->distinct('indicator_id')
+            ->count('indicator_id');
 
         // ─── Assessment yang perlu tindakan kecamatan ─────────────────────
         // Hanya tampilkan assessment yang:
@@ -99,12 +103,19 @@ class DashboardController extends Controller
             ])
             ->get(['id', 'indicator_id', 'status', 'submitted_by_id']);
 
+        // Dedup per indicator_id: untuk setiap indikator, ambil entry terbaru saja.
+        // Ini mencegah satu indikator terhitung lebih dari sekali akibat entry dari versi berbeda.
+        $dedupedEntries = $entries->sortByDesc('id')->unique('indicator_id');
+
         $entriesByAssessment = [];
-        foreach ($entries as $e) {
+        foreach ($dedupedEntries as $e) {
             $aid = $e->indicator->category->assessment_id ?? null;
             if ($aid === null) continue;
             $entriesByAssessment[$aid][] = ['status' => $e->status];
         }
+
+        // Tandai assessment yang sudah ada progress untuk validasi blocked check
+        $userProgressAssessmentIds = array_keys($entriesByAssessment);
 
         // validatorFeedbackSet (sama dengan AssessmentController::index)
         $hasUpdateTmp = [];

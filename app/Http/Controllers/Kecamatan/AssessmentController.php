@@ -85,8 +85,27 @@ class AssessmentController extends Controller
         foreach ($entries as $e) {
             $assessmentId = $e->indicator->category->assessment_id ?? null;
             if ($assessmentId === null) continue;
-            $entriesByAssessment[$assessmentId][] = ['status' => $e->status];
+            $entriesByAssessment[$assessmentId][] = ['status' => $e->status, 'indicator_id' => $e->indicator_id, 'entry_id' => $e->id];
             $userProgressAssessmentIds[$assessmentId] = true;
+        }
+
+        // Dedup per indicator_id: untuk setiap indikator dalam satu assessment,
+        // hanya hitung entry terbaru (MAX id). Ini mencegah satu indikator terhitung
+        // lebih dari sekali karena ada entry dari versi/periode berbeda.
+        foreach ($entriesByAssessment as $aid => $assessmentEntries) {
+            // Kelompokkan per indicator_id, ambil entry dengan id terbesar
+            $byIndicator = [];
+            foreach ($assessmentEntries as $entry) {
+                $iid = $entry['indicator_id'];
+                if (!isset($byIndicator[$iid]) || $entry['entry_id'] > $byIndicator[$iid]['entry_id']) {
+                    $byIndicator[$iid] = $entry;
+                }
+            }
+            // Simpan kembali hanya ['status'] per indikator unik
+            $entriesByAssessment[$aid] = array_values(array_map(
+                fn ($e) => ['status' => $e['status']],
+                $byIndicator
+            ));
         }
 
         // ── validatorFeedbackSet ──────────────────────────────────────────────
@@ -411,32 +430,78 @@ class AssessmentController extends Controller
         }
 
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
-            foreach ($entries as $indicatorId => $data) {
-                $description = $data['description'] ?? '';
-                $score = (int) ($data['score'] ?? 0);
+            // Ambil indikator yang sudah SUBMITTED/VALIDATED — tidak boleh diubah via draft
+            $lockedIndicatorIds = SelfAssessment::where('submitted_by_id', $userId)
+                ->where('periode', $assessment->periode)
+                ->whereIn('status', ['SUBMITTED', 'VALIDATED'])
+                ->pluck('indicator_id')
+                ->flip()
+                ->toArray();
 
-                SelfAssessment::updateOrCreate(
-                    [
-                        'indicator_id' => $indicatorId,
-                        'submitted_by_id' => $userId,
-                        'periode' => $assessment->periode,
-                    ],
-                    [
-                        'description' => $description,
-                        'score' => $score,
-                        'status' => 'DRAFT',
-                    ]
-                );
+            foreach ($entries as $indicatorId => $data) {
+                // Lewati indikator yang sudah terkunci
+                if (isset($lockedIndicatorIds[$indicatorId])) {
+                    continue;
+                }
+
+                $description = $data['description'] ?? '';
+                $score = $data['score'] ?? '';
+                // Skor kosong (belum dipilih) tidak boleh ditimpa — simpan null
+                $scoreValue = ($score !== '' && $score !== null) ? (int) $score : null;
+
+                // Jika skor null dan entry belum ada, buat record dengan score null
+                // Jika entry sudah ada dan skor null, jangan ubah skor yang lama
+                $existing = SelfAssessment::where([
+                    'indicator_id'    => $indicatorId,
+                    'submitted_by_id' => $userId,
+                    'periode'         => $assessment->periode,
+                ])->first();
+
+                if ($existing) {
+                    $updateData = ['description' => $description, 'status' => 'DRAFT'];
+                    if ($scoreValue !== null) {
+                        $updateData['score'] = $scoreValue;
+                    }
+                    $existing->update($updateData);
+                } else {
+                    // Buat entry baru — hanya jika ada konten yang berarti
+                    if ($description !== '' || $scoreValue !== null) {
+                        SelfAssessment::create([
+                            'indicator_id'    => $indicatorId,
+                            'submitted_by_id' => $userId,
+                            'periode'         => $assessment->periode,
+                            'description'     => $description,
+                            'score'           => $scoreValue,
+                            'status'          => 'DRAFT',
+                        ]);
+                    }
+                }
             }
 
-            // Update user status ke IN_PROGRESS
-            UserAssessmentStatus::updateOrCreate(
-                ['user_id' => $userId, 'assessment_id' => $id],
-                [
-                    'status' => 'IN_PROGRESS',
+            // Update user status ke IN_PROGRESS — jangan timpa status yang lebih penting
+            $existingStatus = UserAssessmentStatus::where('user_id', $userId)
+                ->where('assessment_id', $id)
+                ->first();
+
+            if ($existingStatus) {
+                // Hanya update ke IN_PROGRESS jika status saat ini adalah NOT_STARTED
+                // Status lain (NEEDS_REVISION, HAS_UPDATE, SUBMITTED, dll) tidak boleh ditimpa oleh draft
+                $updatePayload = ['last_activity_at' => now()];
+                if ($existingStatus->status === 'NOT_STARTED') {
+                    $updatePayload['status'] = 'IN_PROGRESS';
+                }
+                $existingStatus->update($updatePayload);
+            } else {
+                // Buat baru dengan versi yang benar dari assessment
+                UserAssessmentStatus::create([
+                    'user_id'          => $userId,
+                    'assessment_id'    => $id,
+                    'current_version'  => $assessment->current_version,
+                    'latest_version'   => $assessment->current_version,
+                    'status'           => 'IN_PROGRESS',
                     'last_activity_at' => now(),
-                ]
-            );
+                ]);
+            }
         });
 
         return response()->json(['message' => 'Draft tersimpan.']);
@@ -468,7 +533,20 @@ class AssessmentController extends Controller
         }
 
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
+            // Indikator yang sudah VALIDATED tidak boleh ditimpa
+            $validatedIndicatorIds = SelfAssessment::where('submitted_by_id', $userId)
+                ->where('periode', $assessment->periode)
+                ->where('status', 'VALIDATED')
+                ->pluck('indicator_id')
+                ->flip()
+                ->toArray();
+
             foreach ($entries as $indicatorId => $data) {
+                // Lewati indikator yang sudah VALIDATED (terkunci permanen)
+                if (isset($validatedIndicatorIds[$indicatorId])) {
+                    continue;
+                }
+
                 $description = $data['description'] ?? '';
                 $score = (int) ($data['score'] ?? 0);
                 $supportingDoc = $data['supporting_doc'] ?? null;

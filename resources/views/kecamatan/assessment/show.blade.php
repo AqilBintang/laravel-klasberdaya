@@ -177,7 +177,7 @@
                                     $isNew      = in_array($indicator->id, $newIndicatorIds ?? []);
                                     $isRevision = in_array($indicator->id, $validatorRevisionIndicatorIds ?? []);
                                     $isRejected = in_array($indicator->id, $validatorRejectedIndicatorIds ?? []);
-                                    $isLocked   = $entry && $entry->status === 'VALIDATED' && !$isRevision && !$isRejected;
+                                    $isLocked   = $entry && in_array($entry->status, ['VALIDATED', 'SUBMITTED']) && !$isRevision && !$isRejected;
                                     $rowBg      = match(true) {
                                         $isRejected => 'bg-red-50',
                                         $isRevision => 'bg-yellow-50',
@@ -253,11 +253,12 @@
                                                 <textarea id="desc_{{ $indicator->id }}"
                                                           name="entries[{{ $indicator->id }}][description]"
                                                           rows="2"
-                                                          @if ($isLocked) disabled readonly @endif
+                                                          @if ($isLocked) disabled readonly @else required aria-required="true" @endif
                                                           placeholder="Jelaskan kondisi di kecamatan Anda…"
                                                           class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                                  focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100
                                                                  disabled:bg-gray-50 disabled:text-gray-500 resize-none">{{ $entry?->description }}</textarea>
+                                                <p class="field-error hidden mt-1 text-xs text-red-600" id="err_desc_{{ $indicator->id }}" role="alert">Deskripsi wajib diisi.</p>
                                             </div>
 
                                             {{-- Skor --}}
@@ -269,23 +270,48 @@
                                                 </label>
                                                 <select id="score_{{ $indicator->id }}"
                                                         name="entries[{{ $indicator->id }}][score]"
-                                                        @if ($isLocked) disabled @endif
+                                                        @if ($isLocked) disabled @else required aria-required="true" @endif
                                                         class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                                focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100
                                                                disabled:bg-gray-50 disabled:text-gray-500">
-                                                    @if (!$entry || $entry->score === null)
+                                                    @php $savedScore = ($entry?->score !== null && $entry?->score > 0) ? (int)$entry->score : null; @endphp
+                                                    @if ($savedScore === null)
                                                         <option value="" disabled selected>-- Pilih Skor --</option>
                                                     @endif
                                                     @for ($s = 1; $s <= $indicator->max_score; $s++)
-                                                        <option value="{{ $s }}" {{ ($entry?->score ?? null) == $s ? 'selected' : '' }}>
+                                                        <option value="{{ $s }}" {{ $savedScore === $s ? 'selected' : '' }}>
                                                             {{ $s }}
                                                         </option>
                                                     @endfor
                                                 </select>
+                                                <p class="field-error hidden mt-1 text-xs text-red-600" id="err_score_{{ $indicator->id }}" role="alert">Skor wajib dipilih.</p>
                                                 @if ($validation?->validated_score !== null)
-                                                    <p class="mt-1 text-xs text-sky-600">
-                                                        Skor validator: <strong>{{ $validation->validated_score }}</strong>
-                                                    </p>
+                                                    @php
+                                                        $selfScore      = $entry?->score;
+                                                        $validatorScore = $validation->validated_score;
+                                                        $scoreChanged   = $selfScore !== null && (int)$selfScore !== (int)$validatorScore;
+                                                    @endphp
+                                                    <div class="mt-2 rounded-lg border {{ $scoreChanged ? 'border-amber-300 bg-amber-50' : 'border-green-200 bg-green-50' }} px-3 py-2 flex items-center gap-2">
+                                                        <svg class="w-4 h-4 shrink-0 {{ $scoreChanged ? 'text-amber-500' : 'text-green-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                            @if ($scoreChanged)
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                                            @else
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                            @endif
+                                                        </svg>
+                                                        <div class="min-w-0">
+                                                            <p class="text-xs font-semibold {{ $scoreChanged ? 'text-amber-700' : 'text-green-700' }} leading-tight">
+                                                                Skor Validator:
+                                                                <span class="text-sm font-bold">{{ $validatorScore }}</span>
+                                                                <span class="font-normal">/ {{ $indicator->max_score }}</span>
+                                                            </p>
+                                                            @if ($scoreChanged)
+                                                                <p class="text-xs text-amber-600 mt-0.5">
+                                                                    Diubah dari skor Anda: <span class="line-through">{{ $selfScore }}</span>
+                                                                </p>
+                                                            @endif
+                                                        </div>
+                                                    </div>
                                                 @endif
                                             </div>
                                         </div>
@@ -335,11 +361,13 @@
                                                          class="{{ $docChoice === 'gdrive' ? '' : 'hidden' }} pl-3">
                                                         <input type="url"
                                                                name="entries[{{ $indicator->id }}][supporting_doc]"
+                                                               id="doc_url_{{ $indicator->id }}"
                                                                value="{{ $docChoice === 'gdrive' ? $savedDoc : '' }}"
                                                                placeholder="https://drive.google.com/…"
                                                                maxlength="500"
                                                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                                       focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                                        <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_url_{{ $indicator->id }}" role="alert">Link Google Drive wajib diisi jika memilih opsi ini.</p>
                                                     </div>
 
                                                     <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
@@ -367,6 +395,8 @@
                                                         </div>
                                                     </div>
 
+                                                    <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_{{ $indicator->id }}" role="alert">Status bukti pendukung wajib dipilih.</p>
+
                                                 </div>
                                             @endif
                                         </div>
@@ -378,16 +408,37 @@
                 @endforeach
 
                 {{-- Tombol Aksi --}}
+                @php
+                    // Hitung apakah masih ada indikator yang bisa/perlu diisi.
+                    // Jika semua indikator sudah SUBMITTED/VALIDATED dan tidak ada yang butuh revisi,
+                    // tombol draft & submit disembunyikan (form terkunci).
+                    $totalActive = $assessment->categories->sum(fn($c) => $c->indicators->count());
+                    $lockedCount = $existingEntries
+                        ? $existingEntries
+                            ->whereIn('status', ['VALIDATED', 'SUBMITTED'])
+                            ->whereNotIn('indicator_id', array_merge(
+                                $validatorRevisionIndicatorIds ?? [],
+                                $validatorRejectedIndicatorIds ?? []
+                            ))
+                            ->unique('indicator_id')
+                            ->count()
+                        : 0;
+                    $allLocked = $totalActive > 0 && $lockedCount >= $totalActive;
+                @endphp
+                @if (!$allLocked)
                 <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                    <button type="button" id="btn-draft"
-                            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
-                                   border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700
-                                   hover:bg-gray-50 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
-                        </svg>
-                        Simpan Draft
-                    </button>
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <button type="button" id="btn-draft"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg
+                                       border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700
+                                       hover:bg-gray-50 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                            </svg>
+                            Simpan Draft
+                        </button>
+                        <span id="draft-status" class="text-xs font-medium hidden"></span>
+                    </div>
                     <button type="submit"
                             class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
                                    bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white
@@ -398,6 +449,7 @@
                         Submit Assessment
                     </button>
                 </div>
+                @endif
 
             </div>
         </form>
@@ -533,93 +585,234 @@
 
     <script>
     (function () {
-        // ── Draft save ──────────────────────────────────────────────
+        // ── Auto-save draft ──────────────────────────────────────────
+        var ASSESSMENT_ID = '{{ $assessment->id ?? 0 }}';
+        var DRAFT_URL     = '/kecamatan/assessment/' + ASSESSMENT_ID + '/draft';
+        var CSRF          = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+        var draftTimer    = null;
+        var draftPending  = false;   // ada perubahan yang belum tersimpan
+
+        // Elemen indikator status di pojok kanan atas tombol
+        var draftStatusEl = document.getElementById('draft-status');
+
+        function setDraftStatus(state) {
+            if (!draftStatusEl) return;
+            var cfg = {
+                idle:    { text: '',                           cls: 'hidden' },
+                typing:  { text: '✏ Menunggu…',              cls: 'text-gray-400' },
+                saving:  { text: '⏳ Menyimpan draft…',       cls: 'text-sky-500' },
+                saved:   { text: '✓ Draft tersimpan',         cls: 'text-green-600' },
+                error:   { text: '⚠ Gagal simpan draft',      cls: 'text-red-500' },
+            };
+            var c = cfg[state] || cfg.idle;
+            draftStatusEl.textContent = c.text;
+            draftStatusEl.className   = 'text-xs font-medium transition-all ' + c.cls;
+        }
+
+        async function saveDraftNow() {
+            var form = document.getElementById('form-assessment');
+            if (!form) return;
+            draftPending = false;
+            setDraftStatus('saving');
+            try {
+                var resp = await fetch(DRAFT_URL, {
+                    method:  'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                    body:    new FormData(form),
+                });
+                if (resp.ok) {
+                    setDraftStatus('saved');
+                    // Hilangkan teks "Tersimpan" setelah 3 detik
+                    setTimeout(function () { setDraftStatus('idle'); }, 3000);
+                } else {
+                    setDraftStatus('error');
+                }
+            } catch (e) {
+                setDraftStatus('error');
+            }
+        }
+
+        function scheduleDraft() {
+            draftPending = true;
+            setDraftStatus('typing');
+            clearTimeout(draftTimer);
+            draftTimer = setTimeout(saveDraftNow, 1500);   // debounce 1.5 detik
+        }
+
+        var form = document.getElementById('form-assessment');
+        if (form) {
+            // Semua textarea (deskripsi)
+            form.querySelectorAll('textarea:not([disabled])').forEach(function (el) {
+                el.addEventListener('input', scheduleDraft);
+            });
+            // Semua select (skor) — pakai 'change' karena select tidak fire 'input' di semua browser
+            form.querySelectorAll('select:not([disabled])').forEach(function (el) {
+                el.addEventListener('change', scheduleDraft);
+            });
+            // Radio doc choice dan URL input dipasang lewat event delegation di document
+        }
+
+        // Event delegation untuk input/radio yang mungkin muncul setelah page load
+        document.addEventListener('change', function (e) {
+            if (!e.target.closest('#form-assessment')) return;
+            if (e.target.disabled) return;
+            if (
+                e.target.matches('input[type="radio"]') ||
+                e.target.matches('select') ||
+                e.target.matches('input[type="url"]')
+            ) { scheduleDraft(); }
+        });
+        document.addEventListener('input', function (e) {
+            if (!e.target.closest('#form-assessment')) return;
+            if (e.target.disabled) return;
+            if (e.target.matches('input[type="url"]')) { scheduleDraft(); }
+        });
+
+        // Simpan segera jika user mau menutup/pindah halaman dan ada perubahan pending
+        window.addEventListener('beforeunload', function (e) {
+            if (draftPending || draftTimer) {
+                clearTimeout(draftTimer);
+                // Fire-and-forget sync (navigator.sendBeacon lebih reliable saat unload)
+                var form = document.getElementById('form-assessment');
+                if (form && navigator.sendBeacon) {
+                    var fd = new FormData(form);
+                    fd.append('_token', CSRF);
+                    navigator.sendBeacon(DRAFT_URL, fd);
+                }
+            }
+        });
+
+        // Tombol "Simpan Draft" manual tetap berfungsi sebagai backup
         var btnDraft = document.getElementById('btn-draft');
         if (btnDraft) {
-            btnDraft.addEventListener('click', async function () {
-                var form = document.getElementById('form-assessment');
-                var formData = new FormData(form);
-                var assessmentId = '{{ $assessment->id ?? 0 }}';
-                try {
-                    await fetch('/kecamatan/assessment/' + assessmentId + '/draft', {
-                        method: 'POST',
-                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-                        body: formData,
-                    });
-                    var orig = this.innerHTML;
-                    this.textContent = '✓ Draft Tersimpan';
-                    this.classList.add('text-green-700', 'border-green-300');
-                    var btn = this;
-                    setTimeout(function () {
-                        btn.innerHTML = orig;
-                        btn.classList.remove('text-green-700', 'border-green-300');
-                    }, 2000);
-                } catch (e) { alert('Gagal menyimpan draft. Coba lagi.'); }
+            btnDraft.addEventListener('click', function () {
+                clearTimeout(draftTimer);
+                saveDraftNow();
             });
         }
 
         // ── Validasi submit ─────────────────────────────────────────
-        var form = document.getElementById('form-assessment');
         if (form) {
             form.addEventListener('submit', function (e) {
-                var empty = [];
+                // Bersihkan semua error sebelumnya
+                form.querySelectorAll('.field-error').forEach(function (el) { el.classList.add('hidden'); });
+                form.querySelectorAll('.border-red-400').forEach(function (el) {
+                    el.classList.remove('border-red-400', 'ring-2', 'ring-red-100', 'ring-1', 'ring-red-300');
+                });
 
+                var errors = [];
+
+                // Validasi deskripsi
                 form.querySelectorAll('textarea[name*="[description]"]:not([disabled])').forEach(function (ta) {
                     if (ta.value.trim() === '') {
-                        var row = ta.closest('[data-indicator-id]');
-                        empty.push({ el: ta, type: 'desc' });
+                        ta.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                        var indId = ta.id.replace('desc_', '');
+                        var errEl = document.getElementById('err_desc_' + indId);
+                        if (errEl) errEl.classList.remove('hidden');
+                        errors.push(ta);
+
+                        // Clear error saat diisi
+                        var clearFn = function () {
+                            if (ta.value.trim() !== '') {
+                                ta.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
+                                if (errEl) errEl.classList.add('hidden');
+                            }
+                        };
+                        ta.addEventListener('input', clearFn, { once: false });
                     }
                 });
 
+                // Validasi skor
                 form.querySelectorAll('select[name*="[score]"]:not([disabled])').forEach(function (sel) {
-                    if (sel.value === '') empty.push({ el: sel, type: 'score' });
+                    if (sel.value === '' || sel.value === null) {
+                        sel.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                        var indId = sel.id.replace('score_', '');
+                        var errEl = document.getElementById('err_score_' + indId);
+                        if (errEl) errEl.classList.remove('hidden');
+                        errors.push(sel);
+
+                        // Clear error saat dipilih
+                        var clearFn = function () {
+                            if (sel.value !== '') {
+                                sel.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
+                                if (errEl) errEl.classList.add('hidden');
+                            }
+                        };
+                        sel.addEventListener('change', clearFn, { once: false });
+                    }
                 });
 
+                // Validasi dokumen pendukung (radio + url gdrive)
                 form.querySelectorAll('[data-indicator-id]').forEach(function (row) {
                     var radios = row.querySelectorAll('input[type="radio"][name^="doc_choice_"]');
                     if (!radios.length) return;
-                    if (!Array.from(radios).some(function (r) { return r.checked; })) {
+
+                    var checkedRadio = Array.from(radios).find(function (r) { return r.checked; });
+                    var indId = radios[0].dataset.ind;
+
+                    if (!checkedRadio) {
+                        // Belum ada pilihan radio
                         var group = row.querySelector('.doc-radio-group');
-                        empty.push({ el: group || radios[0], type: 'doc' });
+                        var errEl = document.getElementById('err_doc_' + indId);
+                        if (group) {
+                            group.querySelectorAll('.doc-radio-card').forEach(function (c) {
+                                c.classList.add('border-red-400', 'ring-1', 'ring-red-300');
+                                c.classList.remove('border-gray-200');
+                            });
+                        }
+                        if (errEl) errEl.classList.remove('hidden');
+                        errors.push(group || radios[0]);
+                    } else if (checkedRadio.value === 'gdrive') {
+                        // Pilih gdrive tapi URL kosong
+                        var urlInput = document.getElementById('doc_url_' + indId);
+                        var errDocUrl = document.getElementById('err_doc_url_' + indId);
+                        if (urlInput && urlInput.value.trim() === '') {
+                            urlInput.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                            if (errDocUrl) errDocUrl.classList.remove('hidden');
+                            errors.push(urlInput);
+
+                            var clearFn = function () {
+                                if (urlInput.value.trim() !== '') {
+                                    urlInput.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
+                                    if (errDocUrl) errDocUrl.classList.add('hidden');
+                                }
+                            };
+                            urlInput.addEventListener('input', clearFn, { once: false });
+                        }
                     }
                 });
 
-                if (!empty.length) return;
+                if (!errors.length) return; // lolos semua — submit jalan
                 e.preventDefault();
 
-                empty.forEach(function (f) {
-                    if (f.type === 'doc') {
-                        (f.el.querySelectorAll('.doc-radio-card') || []).forEach(function (c) {
-                            c.classList.add('border-red-400', 'ring-1', 'ring-red-300');
-                            c.classList.remove('border-gray-200');
-                        });
-                    } else {
-                        f.el.classList.add('border-red-400', 'ring-2', 'ring-red-100');
-                        var clear = function () {
-                            var bad = f.type === 'score' ? f.el.value === '' : f.el.value.trim() === '';
-                            if (!bad) { f.el.classList.remove('border-red-400', 'ring-2', 'ring-red-100'); }
-                        };
-                        f.el.addEventListener('input', clear);
-                        f.el.addEventListener('change', clear);
-                    }
-                });
+                // Scroll & fokus ke error pertama
+                var firstError = errors[0];
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(function () {
+                    if (firstError.focus) firstError.focus();
+                }, 400);
 
-                empty[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                if (empty[0].el.focus) empty[0].el.focus();
-
+                // Pesan ringkasan di atas tombol submit
                 var existing = document.getElementById('submit-error-msg');
                 if (existing) existing.remove();
-                var dc = empty.filter(function(f){return f.type==='desc';}).length;
-                var sc = empty.filter(function(f){return f.type==='score';}).length;
-                var pc = empty.filter(function(f){return f.type==='doc';}).length;
+
+                var dc = form.querySelectorAll('textarea[name*="[description]"].border-red-400').length;
+                var sc = form.querySelectorAll('select[name*="[score]"].border-red-400').length;
+                // Hitung radio errors (pakai err_doc_ yang visible)
+                var pc = form.querySelectorAll('[id^="err_doc_"]:not([id*="err_doc_url_"]):not(.hidden)').length;
+                var uc = form.querySelectorAll('[id^="err_doc_url_"]:not(.hidden)').length;
+
                 var parts = [];
-                if (dc) parts.push(dc + ' kolom deskripsi');
+                if (dc) parts.push(dc + ' deskripsi');
                 if (sc) parts.push(sc + ' skor');
-                if (pc) parts.push(pc + ' dokumen pendukung');
+                if (pc) parts.push(pc + ' status dokumen');
+                if (uc) parts.push(uc + ' link Google Drive');
+
                 var msg = document.createElement('p');
                 msg.id = 'submit-error-msg';
-                msg.className = 'text-sm text-red-600 font-medium text-center';
-                msg.textContent = 'Masih ada ' + parts.join(', ') + ' yang belum diisi.';
+                msg.setAttribute('role', 'alert');
+                msg.className = 'text-sm text-red-600 font-medium text-center py-2';
+                msg.textContent = '⚠ Masih ada ' + parts.join(', ') + ' yang belum diisi. Scroll ke atas untuk melihat kolom yang bermasalah.';
                 var btnSubmit = form.querySelector('button[type="submit"]');
                 btnSubmit.parentNode.insertBefore(msg, btnSubmit.parentNode.firstChild);
             });
@@ -633,6 +826,10 @@
                 var nodocDiv = document.getElementById('doc_nodoc_' + indId);
                 var group    = this.closest('.doc-radio-group');
 
+                // Hapus error radio saat user memilih
+                var errDoc = document.getElementById('err_doc_' + indId);
+                if (errDoc) errDoc.classList.add('hidden');
+
                 if (this.value === 'gdrive') {
                     if (fieldDiv) fieldDiv.classList.remove('hidden');
                     if (nodocDiv) {
@@ -644,7 +841,13 @@
                     if (fieldDiv) {
                         fieldDiv.classList.add('hidden');
                         var url = fieldDiv.querySelector('input[type="url"]');
-                        if (url) url.value = '';
+                        if (url) {
+                            url.value = '';
+                            url.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
+                        }
+                        // Sembunyikan error url gdrive
+                        var errDocUrl = document.getElementById('err_doc_url_' + indId);
+                        if (errDocUrl) errDocUrl.classList.add('hidden');
                     }
                     if (nodocDiv) {
                         nodocDiv.classList.remove('hidden');
@@ -661,7 +864,7 @@
                             card.classList.add('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
                             card.classList.remove('border-gray-200', 'bg-white', 'border-red-400', 'ring-red-300');
                         } else {
-                            card.classList.remove('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
+                            card.classList.remove('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400', 'border-red-400', 'ring-red-300');
                             card.classList.add('border-gray-200', 'bg-white');
                         }
                     });

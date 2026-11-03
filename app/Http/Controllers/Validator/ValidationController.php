@@ -229,6 +229,44 @@ class ValidationController extends Controller
                 default           => 'SUBMITTED',
             };
             $selfAssessment->update(['status' => $newStatus]);
+
+            // Sinkronkan UserAssessmentStatus kecamatan agar dashboard & form
+            // menampilkan status yang benar setelah keputusan validator.
+            $userId       = $selfAssessment->submitted_by_id;
+            $assessmentId = $selfAssessment->load('indicator.category')
+                ->indicator?->category?->assessment_id;
+
+            if ($assessmentId) {
+                if ($request->status === 'REVISION_NEEDED' || $request->status === 'REJECTED') {
+                    // Tandai ke kecamatan bahwa ada indikator yang perlu diperbaiki
+                    UserAssessmentStatus::where('user_id', $userId)
+                        ->where('assessment_id', $assessmentId)
+                        ->update(['status' => 'NEEDS_REVISION', 'last_activity_at' => now()]);
+                } elseif ($request->status === 'APPROVED') {
+                    // Cek apakah masih ada indikator SUBMITTED lain pada assessment ini
+                    $stillPending = SelfAssessment::where('submitted_by_id', $userId)
+                        ->where('periode', $selfAssessment->periode)
+                        ->where('status', 'SUBMITTED')
+                        ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                        ->where('id', '!=', $selfAssessment->id)
+                        ->exists();
+
+                    if (!$stillPending) {
+                        // Semua sudah divalidasi — cek apakah benar-benar semua VALIDATED
+                        $allValidated = !SelfAssessment::where('submitted_by_id', $userId)
+                            ->where('periode', $selfAssessment->periode)
+                            ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                            ->whereNotIn('status', ['VALIDATED'])
+                            ->exists();
+
+                        if ($allValidated) {
+                            UserAssessmentStatus::where('user_id', $userId)
+                                ->where('assessment_id', $assessmentId)
+                                ->update(['status' => 'VALIDATED', 'last_activity_at' => now()]);
+                        }
+                    }
+                }
+            }
         });
 
         // Generate/update snapshot jika semua indikator sudah VALIDATED
@@ -271,6 +309,43 @@ class ValidationController extends Controller
                 default           => 'SUBMITTED',
             };
             $selfAssessment->update(['status' => $newStatus]);
+
+            // Sinkronkan UserAssessmentStatus kecamatan — sama seperti store()
+            $userId       = $selfAssessment->submitted_by_id;
+            $assessmentId = $selfAssessment->load('indicator.category')
+                ->indicator?->category?->assessment_id;
+
+            if ($assessmentId) {
+                if ($request->status === 'REVISION_NEEDED' || $request->status === 'REJECTED') {
+                    // Tandai ke kecamatan bahwa ada indikator yang perlu diperbaiki
+                    UserAssessmentStatus::where('user_id', $userId)
+                        ->where('assessment_id', $assessmentId)
+                        ->update(['status' => 'NEEDS_REVISION', 'last_activity_at' => now()]);
+                } elseif ($request->status === 'APPROVED') {
+                    // Cek apakah masih ada indikator SUBMITTED atau DRAFT (belum selesai divalidasi)
+                    $stillPending = SelfAssessment::where('submitted_by_id', $userId)
+                        ->where('periode', $selfAssessment->periode)
+                        ->whereIn('status', ['SUBMITTED', 'DRAFT'])
+                        ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                        ->where('id', '!=', $selfAssessment->id)
+                        ->exists();
+
+                    if (!$stillPending) {
+                        // Semua sudah divalidasi — cek apakah benar-benar semua VALIDATED
+                        $allValidated = !SelfAssessment::where('submitted_by_id', $userId)
+                            ->where('periode', $selfAssessment->periode)
+                            ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                            ->whereNotIn('status', ['VALIDATED'])
+                            ->exists();
+
+                        if ($allValidated) {
+                            UserAssessmentStatus::where('user_id', $userId)
+                                ->where('assessment_id', $assessmentId)
+                                ->update(['status' => 'VALIDATED', 'last_activity_at' => now()]);
+                        }
+                    }
+                }
+            }
         });
 
         // Generate/update snapshot jika semua indikator sudah VALIDATED
