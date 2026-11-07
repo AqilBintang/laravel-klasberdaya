@@ -117,29 +117,39 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
         $total = $s['totalScore']       ?? 0;
         $maks  = $s['maxPossibleTotal'] ?? 0;
 
-        // ── Header info (baris 1–4) ──────────────────────────────
-        $rows[] = ['Judul Assessment', $s['assessmentTitle'] ?? '', '', '', '', '', ''];
-        $rows[] = ['Periode', $s['periode'] ?? '', 'Tahun', $s['tahun'] ?? '', '', '', ''];
-        $rows[] = ['Kabupaten/Kota', $s['kabupaten'] ?? '', 'Kecamatan', $s['kecamatan'] ?? '', '', '', ''];
-        $rows[] = ['Status Akhir', $s['statusAkhir'] ?? '', 'Total Skor', "{$total}/{$maks}", '', '', ''];
-        $rows[] = ['', '', '', '', '', '', ''];
-
-        // ── Per kategori ─────────────────────────────────────────
+        // Hitung weighted score & konversi ke persen
         $categories = $s['categories'] ?? [];
         usort($categories, fn ($a, $b) => ($a['order'] ?? 0) <=> ($b['order'] ?? 0));
 
+        $categoryScoresForWeighted = array_map(fn ($c) => [
+            'code'     => $c['code'],
+            'score'    => $c['totalScore'] ?? 0,
+            'maxScore' => $c['maxScore']   ?? 0,
+        ], $categories);
+
+        $weighted    = \App\Helpers\Scoring::calculateWeightedScore($categoryScoresForWeighted);
+        $wScore      = round($weighted['weightedScore'], 2);
+
+        // ── Header info (baris 1–4) ──────────────────────────────
+        $rows[] = ['Judul Assessment', $s['assessmentTitle'] ?? '', '', '', '', ''];
+        $rows[] = ['Periode', $s['periode'] ?? '', 'Tahun', $s['tahun'] ?? '', '', ''];
+        $rows[] = ['Kabupaten/Kota', $s['kabupaten'] ?? '', 'Kecamatan', $s['kecamatan'] ?? '', '', ''];
+        $rows[] = ['Status Akhir', $s['statusAkhir'] ?? '', 'Skor Akhir', $wScore, '', ''];
+        $rows[] = ['', '', '', '', '', ''];
+
+        // ── Per kategori ─────────────────────────────────────────
         foreach ($categories as $cat) {
             $catTotal = $cat['totalScore'] ?? 0;
             $catMaks  = $cat['maxScore']   ?? 0;
             $klas     = $cat['klasifikasi'] ?? '';
 
             // Header kategori
-            $rows[] = ["Kategori {$cat['code']}", $cat['name'] ?? '', '', '', '', '', ''];
-            $rows[] = ['Total Skor Kategori', "{$catTotal}/{$catMaks}", 'Klasifikasi', $klas, '', '', ''];
-            $rows[] = ['', '', '', '', '', '', ''];
+            $rows[] = ["Kategori {$cat['code']}", $cat['name'] ?? '', '', '', '', ''];
+            $rows[] = ['Total Skor Kategori', "{$catTotal}/{$catMaks}", 'Klasifikasi', $klas, '', ''];
+            $rows[] = ['', '', '', '', '', ''];
 
             // Header kolom indikator
-            $rows[] = ['No', 'Indikator', 'Deskripsi', 'Skor', 'Skor Validasi', 'Skor Efektif', 'Dokumen Pendukung'];
+            $rows[] = ['No', 'Indikator', 'Deskripsi', 'Skor', 'Skor Validasi', 'Dokumen Pendukung'];
 
             // Baris data indikator
             foreach ($cat['indicators'] ?? [] as $ind) {
@@ -147,19 +157,18 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
                     $ind['number']         ?? '',
                     $ind['indicator']      ?? '',
                     $ind['description']    ?? '',
-                    $ind['score']          ?? 0,
-                    $ind['validatedScore'] ?? '',
                     $ind['effectiveScore'] ?? 0,
+                    $ind['validatedScore'] ?? '',
                     $ind['supportingDoc']  ?? '',
                 ];
             }
 
-            $rows[] = ['', '', '', '', '', '', ''];
+            $rows[] = ['', '', '', '', '', ''];
         }
 
         // ── Ringkasan ─────────────────────────────────────────────
-        $rows[] = ['Ringkasan', '', '', '', '', '', ''];
-        $rows[] = ['Total Skor Akhir', "{$total}/{$maks}", 'Klasifikasi Akhir', $s['statusAkhir'] ?? '', '', '', ''];
+        $rows[] = ['Ringkasan', '', '', '', '', ''];
+        $rows[] = ['Skor Akhir', $wScore, 'Klasifikasi Akhir', $s['statusAkhir'] ?? '', '', ''];
 
         return $rows;
     }
@@ -170,14 +179,13 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                // Lebar kolom (A=label/no, B=konten/indikator, C=deskripsi, D=skor, E=skor val, F=skor efektif, G=dokumen)
+                // Lebar kolom (A=label/no, B=konten/indikator, C=deskripsi, D=skor efektif, E=skor validasi, F=dokumen)
                 $sheet->getColumnDimension('A')->setWidth(22);
                 $sheet->getColumnDimension('B')->setWidth(55);
                 $sheet->getColumnDimension('C')->setWidth(55);
                 $sheet->getColumnDimension('D')->setWidth(8);
                 $sheet->getColumnDimension('E')->setWidth(14);
-                $sheet->getColumnDimension('F')->setWidth(14);
-                $sheet->getColumnDimension('G')->setWidth(45);
+                $sheet->getColumnDimension('F')->setWidth(45);
 
                 // Style 4 baris info header
                 $sheet->getStyle('A1:D4')->applyFromArray([

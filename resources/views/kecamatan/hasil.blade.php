@@ -42,15 +42,11 @@
                         </p>
 
                         <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                            {{-- Skor terbobot (utama) --}}
+                            {{-- Skor akhir (utama) --}}
                             <div>
-                                <p class="text-xs text-gray-500 mb-0.5">Skor Terbobot</p>
+                                <p class="text-xs text-gray-500 mb-0.5">Skor Akhir</p>
                                 <p class="text-4xl font-bold text-gray-900 tracking-tight">
                                     {{ number_format($g['weightedScore'], 2) }}
-                                    <span class="text-xl font-normal text-gray-400 ml-1">/ {{ number_format($g['maxWeightedScore'], 2) }}</span>
-                                </p>
-                                <p class="text-xs text-gray-400 mt-1">
-                                    Skor mentah: {{ $g['totalScore'] }} / {{ $g['maxScore'] }}
                                 </p>
                             </div>
 
@@ -75,10 +71,6 @@
                                     ? min(100, round(($g['weightedScore'] / $g['maxWeightedScore']) * 100))
                                     : 0;
                             @endphp
-                            <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                <span>Progress keseluruhan (terbobot)</span>
-                                <span>{{ $pctW }}%</span>
-                            </div>
                             <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                                 <div class="h-full rounded-full bg-sky-500 transition-all" style="width: {{ $pctW }}%"></div>
                             </div>
@@ -223,7 +215,7 @@
                                     @endforeach
                                     <tr class="border-t-2 border-slate-300 font-bold">
                                         <td class="pt-3 text-slate-800">Total Keseluruhan</td>
-                                        <td class="pt-3 text-center text-slate-700">{{ $g['totalScore'] }} / {{ $g['maxScore'] }}</td>
+                                        <td class="pt-3 text-center text-slate-500">—</td>
                                         <td class="pt-3 text-center text-slate-500">—</td>
                                         <td class="pt-3 text-center text-slate-500">100%</td>
                                         <td class="pt-3 text-center text-sky-800 text-base">
