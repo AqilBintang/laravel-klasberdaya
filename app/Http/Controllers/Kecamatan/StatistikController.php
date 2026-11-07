@@ -118,12 +118,16 @@ class StatistikController extends Controller
                     'maxScore' => $cat['maxScore'],
                 ], $categories);
 
+                $weighted = Scoring::calculateWeightedScore($categoryScores);
+
                 return [
-                    'periode'     => $group['periode'],
-                    'totalScore'  => $group['total'],
-                    'maxScore'    => $group['max'],
-                    'statusAkhir' => Scoring::getStatusAkhir($group['total'], $group['max'], $categoryScores),
-                    'categories'  => $categories,
+                    'periode'          => $group['periode'],
+                    'totalScore'       => $group['total'],
+                    'maxScore'         => $group['max'],
+                    'weightedScore'    => round($weighted['weightedScore'], 2),
+                    'maxWeightedScore' => round($weighted['maxWeightedScore'], 2),
+                    'statusAkhir'      => Scoring::getStatusAkhir($group['total'], $group['max'], $categoryScores),
+                    'categories'       => $categories,
                 ];
             })
             ->values()

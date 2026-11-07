@@ -181,12 +181,16 @@ class SelfAssessmentExport implements Export, FromArray, WithEvents, WithTitle
         }
         $statusAkhir = Scoring::getStatusAkhir($grandTotal, $grandMax, $categoryScores);
 
+        // Gunakan weighted score untuk grand total (bukan penjumlahan mentah)
+        $weighted       = Scoring::calculateWeightedScore($categoryScores);
+        $weightedScore  = round($weighted['weightedScore'], 2);
+
         $codesStr   = implode(', ', array_slice($catCodes, 0, -1));
         $lastCode   = end($catCodes);
         $grandLabel = "TOTAL SKOR {$codesStr} DAN {$lastCode}";
 
         $rGrand = count($rows);
-        $rows[] = [$grandLabel, '', '', $grandTotal, '', ''];
+        $rows[] = [$grandLabel, '', '', $weightedScore, '', ''];
         $merge($rGrand, 0, $rGrand, 2);
 
         $rStatus = count($rows);

@@ -263,10 +263,12 @@ class LaporanYearlySheetExport implements FromArray, WithEvents, WithTitle
         }
 
         // ── Grand total ─────────────────────────────────────────────
-        $statusAkhir = Scoring::getStatusAkhir($grandTotal, $grandMax, $categoryScores);
+        $statusAkhir  = Scoring::getStatusAkhir($grandTotal, $grandMax, $categoryScores);
+        $weighted     = Scoring::calculateWeightedScore($categoryScores);
+        $weightedScore = round($weighted['weightedScore'], 2);
 
         $rGrand = count($rows);
-        $rows[] = ['TOTAL SKOR KESELURUHAN', '', '', $grandTotal, '', '', ''];
+        $rows[] = ['TOTAL SKOR KESELURUHAN', '', '', $weightedScore, '', '', ''];
         $merge($rGrand, 0, $rGrand, 2);
 
         $rStatus = count($rows);
@@ -285,7 +287,7 @@ class LaporanYearlySheetExport implements FromArray, WithEvents, WithTitle
         foreach ($rekapRows as $rr) {
             $rows[] = array_merge($rr, ['', '']);
         }
-        $rows[] = ['', 'TOTAL', $grandTotal, $grandMax, $statusAkhir ?? '-', '', ''];
+        $rows[] = ['', 'TOTAL', $weightedScore, '', $statusAkhir ?? '-', '', ''];
 
         $this->rows   = $rows;
         $this->merges = $merges;

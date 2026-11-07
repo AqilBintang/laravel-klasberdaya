@@ -39,9 +39,9 @@
         @php
             $chartData = array_map(fn ($r) => [
                 'periode' => $r['periode'],
-                'skor'    => $r['totalScore'],
-                'maks'    => $r['maxScore'],
-                'pct'     => $r['maxScore'] > 0 ? round(($r['totalScore'] / $r['maxScore']) * 100) : 0,
+                'skor'    => $r['weightedScore'],
+                'maks'    => $r['maxWeightedScore'],
+                'pct'     => $r['maxWeightedScore'] > 0 ? round(($r['weightedScore'] / $r['maxWeightedScore']) * 100) : 0,
             ], $riwayat);
         @endphp
         <script>
@@ -59,11 +59,11 @@
             <div class="flex items-center gap-4 mt-3">
                 <span class="flex items-center gap-1.5 text-xs text-gray-500">
                     <span class="inline-block w-5 h-0.5 bg-sky-400 rounded"></span>
-                    Total Skor
+                    Total Skor Terbobot
                 </span>
                 <span class="flex items-center gap-1.5 text-xs text-gray-400">
                     <span class="inline-block w-5 border-t-2 border-dashed border-gray-300"></span>
-                    Skor Maks
+                    Skor Maks Terbobot
                 </span>
             </div>
         </div>
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 labels: chartData.map(d => d.periode),
                 datasets: [
                     {
-                        label: 'Skor Maks',
+                        label: 'Skor Maks Terbobot',
                         data: chartData.map(d => d.maks),
                         borderColor: '#e2e8f0',
                         borderWidth: 2,
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         fill: false,
                     },
                     {
-                        label: 'Total Skor',
+                        label: 'Total Skor Terbobot',
                         data: chartData.map(d => d.skor),
                         borderColor: '#0ea5e9',
                         borderWidth: 2.5,
@@ -218,10 +218,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="text-right">
-                            <p class="text-xs text-gray-400">Total Skor</p>
+                            <p class="text-xs text-gray-400">Total Skor Terbobot</p>
                             <p class="font-bold text-gray-900 mt-0.5">
-                                ${r.totalScore}
-                                <span class="text-sm font-normal text-gray-400 ml-1">/ ${r.maxScore}</span>
+                                ${r.weightedScore}
+                                <span class="text-sm font-normal text-gray-400 ml-1">/ ${r.maxWeightedScore}</span>
                             </p>
                         </div>
                         ${klasBadge(r.statusAkhir)}
