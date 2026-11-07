@@ -92,6 +92,11 @@ class HasilController extends Controller
             foreach ($ag['categories'] as &$cat) {
                 // Klasifikasi per kategori (Rintisan/Berkembang/Maju/Unggul — hanya A,B,C,D)
                 $cat['klasifikasi'] = Scoring::getKlasifikasiPerKategori($cat['code'], $cat['totalScore']);
+
+                $weight = Scoring::CATEGORY_WEIGHTS[strtoupper($cat['code'])] ?? 0;
+                $cat['weight']       = $weight;
+                $cat['weightedScore'] = round($cat['totalScore'] * $weight, 2);
+
                 $categoryScores[] = [
                     'code'     => $cat['code'],
                     'score'    => $cat['totalScore'],
@@ -101,12 +106,10 @@ class HasilController extends Controller
             unset($cat);
 
             // StatusAkhir: weighted scoring dari semua kategori
-            // Identik dengan NextJS getStatusAkhir(totalScore, maxPossible, categoryScores)
-            $ag['statusAkhir'] = Scoring::getStatusAkhir(
-                $ag['totalScore'],
-                $ag['maxPossibleTotal'],
-                $categoryScores
-            );
+            $weightedResult         = Scoring::calculateWeightedScore($categoryScores);
+            $ag['weightedScore']    = round($weightedResult['weightedScore'], 2);
+            $ag['maxWeightedScore'] = round($weightedResult['maxWeightedScore'], 2);
+            $ag['statusAkhir']      = Scoring::getKlasifikasiFromWeighted($ag['weightedScore']);
 
             // Konversi kategori ke array values
             $ag['categories'] = array_values($ag['categories']);

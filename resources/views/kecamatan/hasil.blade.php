@@ -40,16 +40,23 @@
                         <p class="text-xs text-gray-400 mb-3">
                             {{ $g['assessment']->title }} · Periode {{ $g['assessment']->periode }}
                         </p>
-                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            {{-- Skor terbobot (utama) --}}
                             <div>
-                                <p class="text-xs text-gray-500 mb-0.5">Total Skor</p>
+                                <p class="text-xs text-gray-500 mb-0.5">Skor Terbobot</p>
                                 <p class="text-4xl font-bold text-gray-900 tracking-tight">
-                                    {{ $g['totalScore'] }}
-                                    <span class="text-xl font-normal text-gray-400 ml-1">/ {{ $g['maxScore'] }}</span>
+                                    {{ number_format($g['weightedScore'], 2) }}
+                                    <span class="text-xl font-normal text-gray-400 ml-1">/ {{ number_format($g['maxWeightedScore'], 2) }}</span>
+                                </p>
+                                <p class="text-xs text-gray-400 mt-1">
+                                    Skor mentah: {{ $g['totalScore'] }} / {{ $g['maxScore'] }}
                                 </p>
                             </div>
-                            <div>
-                                <p class="text-xs text-gray-500 mb-1.5">Status Akhir</p>
+
+                            {{-- Status Akhir --}}
+                            <div class="flex flex-col items-start sm:items-end gap-1">
+                                <p class="text-xs text-gray-500">Status Akhir</p>
                                 @if ($g['statusAkhir'])
                                     @php $cfg = \App\Helpers\Scoring::getKlasifikasiConfig($g['statusAkhir']); @endphp
                                     <span class="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold border {{ $cfg['bg'] }} {{ $cfg['color'] }} {{ $cfg['border'] }}">
@@ -60,17 +67,24 @@
                                 @endif
                             </div>
                         </div>
-                        {{-- Progress bar --}}
+
+                        {{-- Progress bar berdasarkan weighted score --}}
                         <div class="mt-4">
-                            @php $pct = $g['maxScore'] > 0 ? round(($g['totalScore'] / $g['maxScore']) * 100) : 0; @endphp
+                            @php
+                                $pctW = $g['maxWeightedScore'] > 0
+                                    ? min(100, round(($g['weightedScore'] / $g['maxWeightedScore']) * 100))
+                                    : 0;
+                            @endphp
                             <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                <span>Progress keseluruhan</span>
-                                <span>{{ $pct }}%</span>
+                                <span>Progress keseluruhan (terbobot)</span>
+                                <span>{{ $pctW }}%</span>
                             </div>
                             <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                <div class="h-full rounded-full bg-sky-500 transition-all" style="width: {{ $pct }}%"></div>
+                                <div class="h-full rounded-full bg-sky-500 transition-all" style="width: {{ $pctW }}%"></div>
                             </div>
                         </div>
+
+
                     </div>
 
                     {{-- ── Per Kategori ─────────────────────────────────── --}}
@@ -178,6 +192,8 @@
                                         <th class="pb-2 text-left">Kategori</th>
                                         <th class="pb-2 text-center">Skor</th>
                                         <th class="pb-2 text-center">Maks</th>
+                                        <th class="pb-2 text-center">Bobot</th>
+                                        <th class="pb-2 text-center">Skor Terbobot</th>
                                         <th class="pb-2 text-right">Status</th>
                                     </tr>
                                 </thead>
@@ -187,6 +203,12 @@
                                             <td class="py-2.5 text-slate-700 font-medium">{{ $cat['code'] }}. {{ $cat['name'] }}</td>
                                             <td class="py-2.5 text-center font-bold text-slate-900">{{ $cat['totalScore'] }}</td>
                                             <td class="py-2.5 text-center text-slate-500">{{ $cat['maxScore'] }}</td>
+                                            <td class="py-2.5 text-center text-slate-500">
+                                                {{ $cat['weight'] > 0 ? number_format($cat['weight'] * 100, 1).'%' : '—' }}
+                                            </td>
+                                            <td class="py-2.5 text-center font-semibold text-sky-700">
+                                                {{ $cat['weight'] > 0 ? number_format($cat['weightedScore'], 2) : '—' }}
+                                            </td>
                                             <td class="py-2.5 text-right">
                                                 @if ($cat['klasifikasi'])
                                                     @php $cfgR = \App\Helpers\Scoring::getKlasifikasiConfig($cat['klasifikasi']); @endphp
@@ -201,8 +223,12 @@
                                     @endforeach
                                     <tr class="border-t-2 border-slate-300 font-bold">
                                         <td class="pt-3 text-slate-800">Total Keseluruhan</td>
-                                        <td class="pt-3 text-center text-slate-900 text-base">{{ $g['totalScore'] }}</td>
-                                        <td class="pt-3 text-center text-slate-600">{{ $g['maxScore'] }}</td>
+                                        <td class="pt-3 text-center text-slate-700">{{ $g['totalScore'] }} / {{ $g['maxScore'] }}</td>
+                                        <td class="pt-3 text-center text-slate-500">—</td>
+                                        <td class="pt-3 text-center text-slate-500">100%</td>
+                                        <td class="pt-3 text-center text-sky-800 text-base">
+                                            {{ number_format($g['weightedScore'], 2) }}
+                                        </td>
                                         <td class="pt-3 text-right">
                                             @if ($g['statusAkhir'])
                                                 @php $cfgFinal = \App\Helpers\Scoring::getKlasifikasiConfig($g['statusAkhir']); @endphp
@@ -217,6 +243,12 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        {{-- Formula penjelasan --}}
+                        <p class="mt-3 text-[11px] text-slate-400 leading-relaxed">
+                            * Skor terbobot = Skor × Bobot kategori.
+                            Formula: (A×31%) + (B×25,5%) + (C×16%) + (D×22%) + (E×1%) + (F×4,5%)
+                        </p>
                     </div>
 
                 </div>

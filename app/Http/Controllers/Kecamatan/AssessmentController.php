@@ -444,10 +444,25 @@ class AssessmentController extends Controller
                     continue;
                 }
 
-                $description = $data['description'] ?? '';
-                $score = $data['score'] ?? '';
+                $description   = $data['description'] ?? '';
+                $score         = $data['score'] ?? '';
                 // Skor kosong (belum dipilih) tidak boleh ditimpa — simpan null
-                $scoreValue = ($score !== '' && $score !== null) ? (int) $score : null;
+                $scoreValue    = ($score !== '' && $score !== null) ? (int) $score : null;
+                // supporting_doc: tentukan nilai berdasarkan pilihan radio dan isian URL
+                // - 'no_doc' dipilih           → simpan 'NO_DOC'
+                // - 'gdrive' dipilih + URL diisi → simpan URL
+                // - 'gdrive' dipilih + URL kosong → simpan 'GDRIVE_PENDING' (radio sudah dipilih, URL belum diisi)
+                // - belum ada pilihan (doc_choice kosong) → null, jangan timpa nilai lama
+                $docChoice     = $data['doc_choice'] ?? '';
+                $rawDoc        = $data['supporting_doc'] ?? '';
+                if ($docChoice === 'no_doc') {
+                    $supportingDoc = 'NO_DOC';
+                } elseif ($docChoice === 'gdrive') {
+                    $supportingDoc = ($rawDoc !== '') ? $rawDoc : 'GDRIVE_PENDING';
+                } else {
+                    // Belum ada pilihan radio — jangan timpa nilai yang sudah tersimpan
+                    $supportingDoc = null;
+                }
 
                 // Jika skor null dan entry belum ada, buat record dengan score null
                 // Jika entry sudah ada dan skor null, jangan ubah skor yang lama
@@ -462,16 +477,20 @@ class AssessmentController extends Controller
                     if ($scoreValue !== null) {
                         $updateData['score'] = $scoreValue;
                     }
+                    if ($supportingDoc !== null) {
+                        $updateData['supporting_doc'] = $supportingDoc;
+                    }
                     $existing->update($updateData);
                 } else {
                     // Buat entry baru — hanya jika ada konten yang berarti
-                    if ($description !== '' || $scoreValue !== null) {
+                    if ($description !== '' || $scoreValue !== null || $supportingDoc !== null) {
                         SelfAssessment::create([
                             'indicator_id'    => $indicatorId,
                             'submitted_by_id' => $userId,
                             'periode'         => $assessment->periode,
                             'description'     => $description,
-                            'score'           => $scoreValue,
+                            'score'           => $scoreValue ?? 0,  // score NOT NULL — default 0 saat draft belum dipilih
+                            'supporting_doc'  => $supportingDoc,
                             'status'          => 'DRAFT',
                         ]);
                     }
@@ -549,7 +568,9 @@ class AssessmentController extends Controller
 
                 $description = $data['description'] ?? '';
                 $score = (int) ($data['score'] ?? 0);
-                $supportingDoc = $data['supporting_doc'] ?? null;
+                $rawDoc = $data['supporting_doc'] ?? null;
+                // 'GDRIVE_PENDING' adalah nilai sementara dari draft — tidak boleh disimpan saat submit
+                $supportingDoc = ($rawDoc === 'GDRIVE_PENDING') ? null : $rawDoc;
 
                 SelfAssessment::updateOrCreate(
                     [
@@ -616,7 +637,9 @@ class AssessmentController extends Controller
             foreach ($entries as $indicatorId => $data) {
                 $description = $data['description'] ?? '';
                 $score = (int) ($data['score'] ?? 0);
-                $supportingDoc = $data['supporting_doc'] ?? null;
+                $rawDoc = $data['supporting_doc'] ?? null;
+                // 'GDRIVE_PENDING' adalah nilai sementara dari draft — tidak boleh disimpan saat update/resubmit
+                $supportingDoc = ($rawDoc === 'GDRIVE_PENDING') ? null : $rawDoc;
 
                 SelfAssessment::updateOrCreate(
                     [
@@ -690,7 +713,8 @@ class AssessmentController extends Controller
             $supportingDoc = $entries[$indicatorId]['supporting_doc'] ?? '';
 
             // supporting_doc wajib: harus diisi dengan URL atau nilai 'NO_DOC'
-            $docMissing = ($supportingDoc === '');
+            // 'GDRIVE_PENDING' berarti radio gdrive dipilih tapi URL belum diisi — dianggap belum lengkap
+            $docMissing = ($supportingDoc === '' || $supportingDoc === 'GDRIVE_PENDING');
 
             if ($description === '' || $score === '' || $docMissing) {
                 $missingIndicators[] = $indicatorId;

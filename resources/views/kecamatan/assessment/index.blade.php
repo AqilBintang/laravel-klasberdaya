@@ -126,7 +126,7 @@
                                     $hasValidatorFeedback = in_array($assessment->id, $validatorFeedbackSet ?? []);
                                 @endphp
                                 <p class="mt-2 text-xs text-red-600 font-medium">
-                                    ⚠️ @if ($hasValidatorFeedback)
+                                    @if ($hasValidatorFeedback)
                                         Tim teknis meminta perbaikan. Buka assessment untuk mengisi ulang indikator yang ditandai.
                                     @else
                                         Ada perubahan dari admin. Silakan lengkapi indikator yang baru/diperbarui.
@@ -134,7 +134,7 @@
                                 </p>
                             @elseif ($hasUpdate)
                                 <p class="mt-2 text-xs text-blue-600 font-medium">
-                                    📋 Assessment diperbarui admin. Silakan lengkapi indikator baru yang tersedia.
+                                    Assessment diperbarui admin. Silakan lengkapi indikator baru yang tersedia.
                                 </p>
                             @endif
 

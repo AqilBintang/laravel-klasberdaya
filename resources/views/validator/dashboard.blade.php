@@ -30,7 +30,7 @@
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ $totalMenunggu }}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Menunggu Divalidasi</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Kecamatan Menunggu Validasi</p>
                 </div>
             </div>
 
@@ -65,7 +65,7 @@
                     </p>
                     @if ($totalMenunggu > 0)
                         <p class="mt-1.5 text-xs font-medium text-amber-600">
-                            {{ $totalMenunggu }} pengisian menunggu validasi
+                            {{ $totalMenunggu }} kecamatan menunggu validasi
                         </p>
                     @else
                         <p class="mt-1.5 text-xs text-gray-400">Tidak ada pengisian yang menunggu validasi</p>

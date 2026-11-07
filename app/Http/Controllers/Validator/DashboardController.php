@@ -14,8 +14,10 @@ class DashboardController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Jumlah self-assessment yang menunggu divalidasi (global)
-        $totalMenunggu = SelfAssessment::where('status', 'SUBMITTED')->count();
+        // Jumlah kecamatan unik yang punya self-assessment menunggu divalidasi
+        $totalMenunggu = SelfAssessment::where('status', 'SUBMITTED')
+            ->distinct('submitted_by_id')
+            ->count('submitted_by_id');
 
         // Jumlah yang pernah divalidasi oleh user ini
         $totalDivalidasiByMe = SelfAssessment::whereHas('validations', function ($q) use ($user) {

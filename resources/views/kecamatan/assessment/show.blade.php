@@ -177,7 +177,9 @@
                                     $isNew      = in_array($indicator->id, $newIndicatorIds ?? []);
                                     $isRevision = in_array($indicator->id, $validatorRevisionIndicatorIds ?? []);
                                     $isRejected = in_array($indicator->id, $validatorRejectedIndicatorIds ?? []);
-                                    $isLocked   = $entry && in_array($entry->status, ['VALIDATED', 'SUBMITTED']) && !$isRevision && !$isRejected;
+                                    $isValidated = $entry && $entry->status === 'VALIDATED' && !$isRevision && !$isRejected;
+                                    $isSubmitted = $entry && $entry->status === 'SUBMITTED' && !$isRevision && !$isRejected;
+                                    $isLocked    = $isValidated || $isSubmitted;
                                     $rowBg      = match(true) {
                                         $isRejected => 'bg-red-50',
                                         $isRevision => 'bg-yellow-50',
@@ -212,8 +214,10 @@
                                                     @if ($isRejected)
                                                         <span class="rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-medium">Ditolak</span>
                                                     @endif
-                                                    @if ($isLocked)
-                                                        <span class="rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">✓ Tervalidasi</span>
+                                                    @if ($isValidated)
+                                                        <span class="rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">Tervalidasi</span>
+                                                    @elseif ($isSubmitted)
+                                                        <span class="rounded-full bg-sky-100 text-sky-700 border border-sky-200 px-2 py-0.5 text-xs font-medium">Menunggu Validasi</span>
                                                     @endif
                                                     @if (!empty($rubric))
                                                         <button type="button"
@@ -341,61 +345,66 @@
                                                     <p class="text-xs text-gray-400 italic">Tidak ada dokumen.</p>
                                                 @endif
                                             @else
-                                                <div class="space-y-2 doc-radio-group" data-ind="{{ $indicator->id }}">
+                                                <div class="doc-radio-group" data-ind="{{ $indicator->id }}">
 
-                                                    <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
-                                                                  {{ $docChoice === 'gdrive' ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-400' : 'border-gray-200 bg-white hover:border-gray-300' }}">
-                                                        <input type="radio"
-                                                               name="doc_choice_{{ $indicator->id }}"
-                                                               value="gdrive"
-                                                               class="doc-choice-radio mt-0.5 accent-sky-600 shrink-0"
-                                                               data-ind="{{ $indicator->id }}"
-                                                               {{ $docChoice === 'gdrive' ? 'checked' : '' }}>
-                                                        <div class="min-w-0">
-                                                            <p class="text-xs font-semibold text-gray-800 leading-snug">Melampirkan link Google Drive</p>
-                                                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">Pilih jika sudah ada dan tersedia dokumen/foto bukti pendukung.</p>
-                                                        </div>
-                                                    </label>
+                                                    {{-- Hidden input untuk menyimpan pilihan radio ke draft --}}
+                                                    <input type="hidden"
+                                                           name="entries[{{ $indicator->id }}][doc_choice]"
+                                                           id="doc_choice_hidden_{{ $indicator->id }}"
+                                                           value="{{ $docChoice ?? '' }}">
 
+                                                    {{-- Pilihan radio sebaris --}}
+                                                    <div class="flex gap-2">
+                                                        <label class="doc-radio-card flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs font-medium transition-all
+                                                                      {{ $docChoice === 'gdrive' ? 'border-sky-500 bg-sky-50 text-sky-700 ring-1 ring-sky-400' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300' }}">
+                                                            <input type="radio"
+                                                                   name="doc_choice_{{ $indicator->id }}"
+                                                                   value="gdrive"
+                                                                   class="doc-choice-radio accent-sky-600 shrink-0"
+                                                                   data-ind="{{ $indicator->id }}"
+                                                                   {{ $docChoice === 'gdrive' ? 'checked' : '' }}>
+                                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                                            Ada Dokumen
+                                                        </label>
+
+                                                        <label class="doc-radio-card flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-xs font-medium transition-all
+                                                                      {{ $docChoice === 'no_doc' ? 'border-gray-400 bg-gray-50 text-gray-600 ring-1 ring-gray-300' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300' }}">
+                                                            <input type="radio"
+                                                                   name="doc_choice_{{ $indicator->id }}"
+                                                                   value="no_doc"
+                                                                   class="doc-choice-radio accent-sky-600 shrink-0"
+                                                                   data-ind="{{ $indicator->id }}"
+                                                                   {{ $docChoice === 'no_doc' ? 'checked' : '' }}>
+                                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                            Belum Ada Kegiatan
+                                                        </label>
+                                                    </div>
+
+                                                    {{-- Input URL Google Drive (muncul jika pilih "Ada Dokumen") --}}
                                                     <div id="doc_field_{{ $indicator->id }}"
-                                                         class="{{ $docChoice === 'gdrive' ? '' : 'hidden' }} pl-3">
+                                                         class="{{ $docChoice === 'gdrive' ? 'mt-2' : 'hidden' }}">
                                                         <input type="url"
                                                                name="entries[{{ $indicator->id }}][supporting_doc]"
                                                                id="doc_url_{{ $indicator->id }}"
-                                                               value="{{ $docChoice === 'gdrive' ? $savedDoc : '' }}"
+                                                               value="{{ ($docChoice === 'gdrive' && $savedDoc !== 'GDRIVE_PENDING') ? $savedDoc : '' }}"
                                                                placeholder="https://drive.google.com/…"
                                                                maxlength="500"
                                                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                                       focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
-                                                        <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_url_{{ $indicator->id }}" role="alert">Link Google Drive wajib diisi jika memilih opsi ini.</p>
+                                                        <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_url_{{ $indicator->id }}" role="alert">Link Google Drive wajib diisi.</p>
                                                     </div>
 
-                                                    <label class="doc-radio-card flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-all
-                                                                  {{ $docChoice === 'no_doc' ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-400' : 'border-gray-200 bg-white hover:border-gray-300' }}">
-                                                        <input type="radio"
-                                                               name="doc_choice_{{ $indicator->id }}"
-                                                               value="no_doc"
-                                                               class="doc-choice-radio mt-0.5 accent-sky-600 shrink-0"
-                                                               data-ind="{{ $indicator->id }}"
-                                                               {{ $docChoice === 'no_doc' ? 'checked' : '' }}>
-                                                        <div class="min-w-0">
-                                                            <p class="text-xs font-semibold text-gray-800 leading-snug">Belum Terdapat Kegiatan</p>
-                                                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">Pilih jika kegiatan yang dimaksud memang belum dilaksanakan.</p>
-                                                        </div>
-                                                    </label>
-
+                                                    {{-- Keterangan singkat jika pilih "Belum Ada Kegiatan" --}}
                                                     <div id="doc_nodoc_{{ $indicator->id }}"
-                                                         class="{{ $docChoice === 'no_doc' ? '' : 'hidden' }}">
+                                                         class="{{ $docChoice === 'no_doc' ? 'mt-2' : 'hidden' }}">
                                                         <input type="hidden"
                                                                name="entries[{{ $indicator->id }}][supporting_doc]"
-                                                               value="NO_DOC">
-                                                        <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-                                                            <p class="text-xs font-semibold text-blue-800 mb-0.5">Link dokumen tidak diperlukan.</p>
-                                                            <p class="text-xs text-blue-700 leading-snug">Dengan memilih opsi ini, pengguna menyatakan bahwa belum terdapat kegiatan untuk indikator tersebut.</p>
-                                                        </div>
+                                                               value="NO_DOC"
+                                                               @if ($docChoice !== 'no_doc') disabled @endif>
+                                                        <p class="text-xs text-gray-500 italic">Kegiatan belum dilaksanakan — dokumen tidak diperlukan.</p>
                                                     </div>
 
-                                                    <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_{{ $indicator->id }}" role="alert">Status bukti pendukung wajib dipilih.</p>
+                                                    <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_{{ $indicator->id }}" role="alert">Pilih salah satu opsi dokumen pendukung.</p>
 
                                                 </div>
                                             @endif
@@ -439,7 +448,7 @@
                         </button>
                         <span id="draft-status" class="text-xs font-medium hidden"></span>
                     </div>
-                    <button type="submit"
+                    <button type="button" id="btn-submit-preview"
                             class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
                                    bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white
                                    hover:bg-sky-700 transition-colors">
@@ -454,6 +463,105 @@
             </div>
         </form>
 
+        {{-- ── Modal Konfirmasi Submit ─────────────────────────────────── --}}
+        <div id="modal-submit" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modal-submit-title">
+            {{-- Backdrop --}}
+            <div id="modal-backdrop" class="fixed inset-0 bg-black/40"></div>
+
+            {{-- Panel --}}
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <div class="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-xl">
+
+                    {{-- Header --}}
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                        <div>
+                            <h3 id="modal-submit-title" class="text-base font-semibold text-gray-900">Konfirmasi Submit Assessment</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Periksa kembali jawaban Anda sebelum dikirim</p>
+                        </div>
+                        <button type="button" id="btn-modal-close"
+                                class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    {{-- Body: ringkasan jawaban --}}
+                    <div class="overflow-y-auto flex-1 px-6 py-4 space-y-5" id="modal-preview-body">
+                        @foreach ($assessment->categories as $cat)
+                            @php $catIndicators = $cat->indicators; @endphp
+                            @if ($catIndicators->isNotEmpty())
+                            <div>
+                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                                    {{ $cat->code }} — {{ $cat->name }}
+                                </p>
+                                <div class="space-y-3">
+                                    @foreach ($catIndicators as $ind)
+                                        @php
+                                            $e        = $existingEntries?->firstWhere('indicator_id', $ind->id);
+                                            $isLocked = $e && in_array($e->status, ['VALIDATED', 'SUBMITTED']);
+                                            $doc      = $e?->supporting_doc;
+                                            $docLabel = match(true) {
+                                                $doc === 'NO_DOC'         => 'Belum ada kegiatan',
+                                                $doc === 'GDRIVE_PENDING' => 'Ada dokumen — URL belum diisi',
+                                                $doc !== null             => $doc,
+                                                default                   => '—',
+                                            };
+                                        @endphp
+                                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm"
+                                             id="preview-ind-{{ $ind->id }}">
+                                            <p class="text-xs text-gray-400 mb-1">{{ $ind->number }}. {{ $ind->indicator }}</p>
+                                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                                                <div>
+                                                    <span class="block text-gray-400 mb-0.5">Deskripsi</span>
+                                                    <span class="preview-desc text-gray-700 line-clamp-2">{{ $e?->description ?? '—' }}</span>
+                                                </div>
+                                                <div>
+                                                    <span class="block text-gray-400 mb-0.5">Skor</span>
+                                                    <span class="preview-score text-gray-700">{{ ($e?->score && $e->score > 0) ? $e->score : '—' }}</span>
+                                                </div>
+                                                <div>
+                                                    <span class="block text-gray-400 mb-0.5">Bukti Pendukung</span>
+                                                    @if ($doc && $doc !== 'NO_DOC' && $doc !== 'GDRIVE_PENDING')
+                                                        <a href="{{ $doc }}" target="_blank" rel="noopener"
+                                                           class="preview-doc text-sky-600 hover:underline truncate block max-w-full">Lihat Dokumen</a>
+                                                    @else
+                                                        <span class="preview-doc text-gray-700">{{ $docLabel }}</span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+                        @endforeach
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+                        <p class="text-xs text-gray-400">Setelah dikirim, jawaban tidak dapat diubah kecuali ada permintaan revisi.</p>
+                        <div class="flex gap-2 shrink-0">
+                            <button type="button" id="btn-modal-cancel"
+                                    class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600
+                                           hover:bg-gray-50 transition-colors">
+                                Kembali
+                            </button>
+                            <button type="button" id="btn-modal-confirm"
+                                    class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2 text-sm font-semibold text-white
+                                           hover:bg-sky-700 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Kirim Sekarang
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
         @endif
 
         @else
@@ -461,7 +569,7 @@
                 <p class="text-sm text-gray-500">Assessment tidak ditemukan.</p>
                 <a href="{{ route('kecamatan.assessment.index') }}"
                    class="mt-3 inline-block text-sm text-sky-600 hover:text-sky-700 font-medium">
-                    ← Kembali ke daftar
+                    Kembali ke daftar
                 </a>
             </div>
         @endisset
@@ -599,10 +707,10 @@
             if (!draftStatusEl) return;
             var cfg = {
                 idle:    { text: '',                           cls: 'hidden' },
-                typing:  { text: '✏ Menunggu…',              cls: 'text-gray-400' },
-                saving:  { text: '⏳ Menyimpan draft…',       cls: 'text-sky-500' },
-                saved:   { text: '✓ Draft tersimpan',         cls: 'text-green-600' },
-                error:   { text: '⚠ Gagal simpan draft',      cls: 'text-red-500' },
+                typing:  { text: 'Menunggu…',                 cls: 'text-gray-400' },
+                saving:  { text: 'Menyimpan draft…',          cls: 'text-sky-500' },
+                saved:   { text: 'Draft tersimpan',           cls: 'text-green-600' },
+                error:   { text: 'Gagal simpan draft',        cls: 'text-red-500' },
             };
             var c = cfg[state] || cfg.idle;
             draftStatusEl.textContent = c.text;
@@ -691,130 +799,163 @@
             });
         }
 
-        // ── Validasi submit ─────────────────────────────────────────
-        if (form) {
-            form.addEventListener('submit', function (e) {
-                // Bersihkan semua error sebelumnya
-                form.querySelectorAll('.field-error').forEach(function (el) { el.classList.add('hidden'); });
-                form.querySelectorAll('.border-red-400').forEach(function (el) {
-                    el.classList.remove('border-red-400', 'ring-2', 'ring-red-100', 'ring-1', 'ring-red-300');
-                });
+        // ── Modal Konfirmasi Submit ──────────────────────────────────
+        var modal        = document.getElementById('modal-submit');
+        var btnPreview   = document.getElementById('btn-submit-preview');
+        var btnClose     = document.getElementById('btn-modal-close');
+        var btnCancel    = document.getElementById('btn-modal-cancel');
+        var btnConfirm   = document.getElementById('btn-modal-confirm');
+        var backdrop     = document.getElementById('modal-backdrop');
 
-                var errors = [];
-
-                // Validasi deskripsi
-                form.querySelectorAll('textarea[name*="[description]"]:not([disabled])').forEach(function (ta) {
-                    if (ta.value.trim() === '') {
-                        ta.classList.add('border-red-400', 'ring-2', 'ring-red-100');
-                        var indId = ta.id.replace('desc_', '');
-                        var errEl = document.getElementById('err_desc_' + indId);
-                        if (errEl) errEl.classList.remove('hidden');
-                        errors.push(ta);
-
-                        // Clear error saat diisi
-                        var clearFn = function () {
-                            if (ta.value.trim() !== '') {
-                                ta.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
-                                if (errEl) errEl.classList.add('hidden');
-                            }
-                        };
-                        ta.addEventListener('input', clearFn, { once: false });
-                    }
-                });
-
-                // Validasi skor
-                form.querySelectorAll('select[name*="[score]"]:not([disabled])').forEach(function (sel) {
-                    if (sel.value === '' || sel.value === null) {
-                        sel.classList.add('border-red-400', 'ring-2', 'ring-red-100');
-                        var indId = sel.id.replace('score_', '');
-                        var errEl = document.getElementById('err_score_' + indId);
-                        if (errEl) errEl.classList.remove('hidden');
-                        errors.push(sel);
-
-                        // Clear error saat dipilih
-                        var clearFn = function () {
-                            if (sel.value !== '') {
-                                sel.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
-                                if (errEl) errEl.classList.add('hidden');
-                            }
-                        };
-                        sel.addEventListener('change', clearFn, { once: false });
-                    }
-                });
-
-                // Validasi dokumen pendukung (radio + url gdrive)
+        function openModal() {
+            if (!modal) return;
+            // Update preview dari nilai form saat ini (bukan hanya dari PHP)
+            if (form) {
                 form.querySelectorAll('[data-indicator-id]').forEach(function (row) {
-                    var radios = row.querySelectorAll('input[type="radio"][name^="doc_choice_"]');
-                    if (!radios.length) return;
+                    var indId   = row.dataset.indicatorId;
+                    var preview = document.getElementById('preview-ind-' + indId);
+                    if (!preview) return;
 
-                    var checkedRadio = Array.from(radios).find(function (r) { return r.checked; });
-                    var indId = radios[0].dataset.ind;
+                    // Deskripsi
+                    var ta = row.querySelector('textarea[name*="[description]"]');
+                    var descEl = preview.querySelector('.preview-desc');
+                    if (ta && descEl) descEl.textContent = ta.value.trim() || '—';
 
-                    if (!checkedRadio) {
-                        // Belum ada pilihan radio
-                        var group = row.querySelector('.doc-radio-group');
-                        var errEl = document.getElementById('err_doc_' + indId);
-                        if (group) {
-                            group.querySelectorAll('.doc-radio-card').forEach(function (c) {
+                    // Skor
+                    var sel = row.querySelector('select[name*="[score]"]');
+                    var scoreEl = preview.querySelector('.preview-score');
+                    if (sel && scoreEl) scoreEl.textContent = sel.value || '—';
+
+                    // Bukti pendukung
+                    var docEl = preview.querySelector('.preview-doc');
+                    if (docEl) {
+                        var choiceHidden = document.getElementById('doc_choice_hidden_' + indId);
+                        var choice = choiceHidden ? choiceHidden.value : '';
+                        if (choice === 'no_doc') {
+                            docEl.textContent = 'Belum ada kegiatan';
+                            docEl.removeAttribute('href');
+                        } else if (choice === 'gdrive') {
+                            var urlInput = document.getElementById('doc_url_' + indId);
+                            var url = urlInput ? urlInput.value.trim() : '';
+                            if (url) {
+                                docEl.textContent = 'Lihat Dokumen';
+                                docEl.setAttribute('href', url);
+                            } else {
+                                docEl.textContent = 'Ada dokumen — URL belum diisi';
+                                docEl.removeAttribute('href');
+                            }
+                        } else {
+                            if (!docEl.getAttribute('href')) {
+                                docEl.textContent = '—';
+                            }
+                        }
+                    }
+                });
+            }
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            if (!modal) return;
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        if (btnPreview) {
+            btnPreview.addEventListener('click', function () {
+                // Jalankan validasi dulu — jika ada error, jangan buka modal
+                if (form) {
+                    // Trigger validasi dengan dispatch submit event (preventDefault akan menangkap)
+                    var valid = true;
+                    // Cek sederhana: ada field-error yang visible setelah klik
+                    // Gunakan cara yang sama dengan validasi submit asli
+                    form.querySelectorAll('.field-error').forEach(function (el) { el.classList.add('hidden'); });
+                    form.querySelectorAll('.border-red-400').forEach(function (el) {
+                        el.classList.remove('border-red-400', 'ring-2', 'ring-red-100', 'ring-1', 'ring-red-300');
+                    });
+                    form.querySelectorAll('.doc-radio-card').forEach(function (el) {
+                        el.classList.remove('border-red-400', 'ring-1', 'ring-red-300');
+                        if (!el.querySelector('input[type="radio"]:checked')) {
+                            el.classList.add('border-gray-200', 'bg-white');
+                        }
+                    });
+
+                    var errors = [];
+                    form.querySelectorAll('textarea[name*="[description]"]:not([disabled])').forEach(function (ta) {
+                        if (ta.value.trim() === '') {
+                            ta.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                            var errEl = document.getElementById('err_desc_' + ta.id.replace('desc_', ''));
+                            if (errEl) errEl.classList.remove('hidden');
+                            errors.push(ta);
+                        }
+                    });
+                    form.querySelectorAll('select[name*="[score]"]:not([disabled])').forEach(function (sel) {
+                        if (!sel.value) {
+                            sel.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                            var errEl = document.getElementById('err_score_' + sel.id.replace('score_', ''));
+                            if (errEl) errEl.classList.remove('hidden');
+                            errors.push(sel);
+                        }
+                    });
+                    form.querySelectorAll('[data-indicator-id]').forEach(function (row) {
+                        var radios = row.querySelectorAll('input[type="radio"][name^="doc_choice_"]');
+                        if (!radios.length) return;
+                        var checked = Array.from(radios).find(function (r) { return r.checked; });
+                        var indId = radios[0].dataset.ind;
+                        if (!checked) {
+                            var group = row.querySelector('.doc-radio-group');
+                            var errEl = document.getElementById('err_doc_' + indId);
+                            if (group) group.querySelectorAll('.doc-radio-card').forEach(function (c) {
                                 c.classList.add('border-red-400', 'ring-1', 'ring-red-300');
                                 c.classList.remove('border-gray-200');
                             });
+                            if (errEl) errEl.classList.remove('hidden');
+                            errors.push(group || radios[0]);
+                        } else if (checked.value === 'gdrive') {
+                            var urlInput = document.getElementById('doc_url_' + indId);
+                            if (urlInput && !urlInput.value.trim()) {
+                                urlInput.classList.add('border-red-400', 'ring-2', 'ring-red-100');
+                                var errDocUrl = document.getElementById('err_doc_url_' + indId);
+                                if (errDocUrl) errDocUrl.classList.remove('hidden');
+                                errors.push(urlInput);
+                            }
                         }
-                        if (errEl) errEl.classList.remove('hidden');
-                        errors.push(group || radios[0]);
-                    } else if (checkedRadio.value === 'gdrive') {
-                        // Pilih gdrive tapi URL kosong
-                        var urlInput = document.getElementById('doc_url_' + indId);
-                        var errDocUrl = document.getElementById('err_doc_url_' + indId);
-                        if (urlInput && urlInput.value.trim() === '') {
-                            urlInput.classList.add('border-red-400', 'ring-2', 'ring-red-100');
-                            if (errDocUrl) errDocUrl.classList.remove('hidden');
-                            errors.push(urlInput);
+                    });
 
-                            var clearFn = function () {
-                                if (urlInput.value.trim() !== '') {
-                                    urlInput.classList.remove('border-red-400', 'ring-2', 'ring-red-100');
-                                    if (errDocUrl) errDocUrl.classList.add('hidden');
-                                }
-                            };
-                            urlInput.addEventListener('input', clearFn, { once: false });
-                        }
+                    if (errors.length) {
+                        errors.sort(function (a, b) {
+                            var pos = a.compareDocumentPosition(b);
+                            if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+                            if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+                            return 0;
+                        });
+                        var first = errors[0];
+                        var focusTarget = (first.tagName === 'DIV') ? (first.querySelector('input,select,textarea') || first) : first;
+                        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(function () { if (focusTarget.focus) focusTarget.focus(); }, 400);
+                        return;
                     }
-                });
+                }
+                openModal();
+            });
+        }
 
-                if (!errors.length) return; // lolos semua — submit jalan
-                e.preventDefault();
+        if (btnClose)   btnClose.addEventListener('click', closeModal);
+        if (btnCancel)  btnCancel.addEventListener('click', closeModal);
+        if (backdrop)   backdrop.addEventListener('click', closeModal);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeModal();
+        });
 
-                // Scroll & fokus ke error pertama
-                var firstError = errors[0];
-                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setTimeout(function () {
-                    if (firstError.focus) firstError.focus();
-                }, 400);
-
-                // Pesan ringkasan di atas tombol submit
-                var existing = document.getElementById('submit-error-msg');
-                if (existing) existing.remove();
-
-                var dc = form.querySelectorAll('textarea[name*="[description]"].border-red-400').length;
-                var sc = form.querySelectorAll('select[name*="[score]"].border-red-400').length;
-                // Hitung radio errors (pakai err_doc_ yang visible)
-                var pc = form.querySelectorAll('[id^="err_doc_"]:not([id*="err_doc_url_"]):not(.hidden)').length;
-                var uc = form.querySelectorAll('[id^="err_doc_url_"]:not(.hidden)').length;
-
-                var parts = [];
-                if (dc) parts.push(dc + ' deskripsi');
-                if (sc) parts.push(sc + ' skor');
-                if (pc) parts.push(pc + ' status dokumen');
-                if (uc) parts.push(uc + ' link Google Drive');
-
-                var msg = document.createElement('p');
-                msg.id = 'submit-error-msg';
-                msg.setAttribute('role', 'alert');
-                msg.className = 'text-sm text-red-600 font-medium text-center py-2';
-                msg.textContent = '⚠ Masih ada ' + parts.join(', ') + ' yang belum diisi. Scroll ke atas untuk melihat kolom yang bermasalah.';
-                var btnSubmit = form.querySelector('button[type="submit"]');
-                btnSubmit.parentNode.insertBefore(msg, btnSubmit.parentNode.firstChild);
+        if (btnConfirm) {
+            btnConfirm.addEventListener('click', function () {
+                if (!form) return;
+                // Simpan draft terakhir lalu submit
+                clearTimeout(draftTimer);
+                btnConfirm.disabled = true;
+                btnConfirm.textContent = 'Mengirim…';
+                form.submit();
             });
         }
 
@@ -830,16 +971,25 @@
                 var errDoc = document.getElementById('err_doc_' + indId);
                 if (errDoc) errDoc.classList.add('hidden');
 
+                // Sync hidden input pilihan radio (untuk auto-save draft)
+                var choiceHidden = document.getElementById('doc_choice_hidden_' + indId);
+                if (choiceHidden) choiceHidden.value = this.value;
+
                 if (this.value === 'gdrive') {
-                    if (fieldDiv) fieldDiv.classList.remove('hidden');
+                    if (fieldDiv) {
+                        fieldDiv.classList.remove('hidden');
+                        fieldDiv.classList.add('mt-2');
+                    }
                     if (nodocDiv) {
                         nodocDiv.classList.add('hidden');
+                        nodocDiv.classList.remove('mt-2');
                         var hi = nodocDiv.querySelector('input[type="hidden"]');
                         if (hi) hi.disabled = true;
                     }
                 } else {
                     if (fieldDiv) {
                         fieldDiv.classList.add('hidden');
+                        fieldDiv.classList.remove('mt-2');
                         var url = fieldDiv.querySelector('input[type="url"]');
                         if (url) {
                             url.value = '';
@@ -851,6 +1001,7 @@
                     }
                     if (nodocDiv) {
                         nodocDiv.classList.remove('hidden');
+                        nodocDiv.classList.add('mt-2');
                         var hi = nodocDiv.querySelector('input[type="hidden"]');
                         if (hi) hi.disabled = false;
                     }
@@ -860,12 +1011,21 @@
                     group.querySelectorAll('.doc-radio-card').forEach(function (card) {
                         var r = card.querySelector('input[type="radio"]');
                         if (!r) return;
+                        // Reset semua style dulu
+                        card.classList.remove(
+                            'border-sky-500', 'bg-sky-50', 'text-sky-700', 'ring-1', 'ring-sky-400',
+                            'border-gray-400', 'bg-gray-50', 'text-gray-600', 'ring-gray-300',
+                            'border-red-400', 'ring-red-300',
+                            'border-gray-200', 'bg-white'
+                        );
                         if (r.checked) {
-                            card.classList.add('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400');
-                            card.classList.remove('border-gray-200', 'bg-white', 'border-red-400', 'ring-red-300');
+                            if (r.value === 'gdrive') {
+                                card.classList.add('border-sky-500', 'bg-sky-50', 'text-sky-700', 'ring-1', 'ring-sky-400');
+                            } else {
+                                card.classList.add('border-gray-400', 'bg-gray-50', 'text-gray-600', 'ring-1', 'ring-gray-300');
+                            }
                         } else {
-                            card.classList.remove('border-sky-500', 'bg-sky-50', 'ring-1', 'ring-sky-400', 'border-red-400', 'ring-red-300');
-                            card.classList.add('border-gray-200', 'bg-white');
+                            card.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
                         }
                     });
                 }

@@ -44,47 +44,6 @@
             </div>
         </div>
 
-        {{-- ── Ringkasan Status ─────────────────────────────────────────── --}}
-        @isset($summary)
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-gray-600">
-                {{ $summary['totalAll'] }} total indikator
-            </span>
-            @if (($summary['totalValidated'] ?? 0) > 0)
-                <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-green-700">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    {{ $summary['totalValidated'] }} divalidasi
-                </span>
-            @endif
-            @if (($summary['totalRejected'] ?? 0) > 0)
-                <span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-red-700">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                    {{ $summary['totalRejected'] }} ditolak
-                </span>
-            @endif
-            @if (($summary['totalDraft'] ?? 0) > 0)
-                <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-3 py-1 text-yellow-700">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01"/>
-                    </svg>
-                    {{ $summary['totalDraft'] }} perlu revisi kecamatan
-                </span>
-            @endif
-            @if (($summary['totalPending'] ?? 0) > 0)
-                <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-amber-700">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    {{ $summary['totalPending'] }} menunggu validasi
-                </span>
-            @endif
-        </div>
-        @endisset
-
         {{-- ── Daftar Indikator dengan Form Validasi ───────────────────── --}}
         @isset($entries)
         @if ($entries->isEmpty())

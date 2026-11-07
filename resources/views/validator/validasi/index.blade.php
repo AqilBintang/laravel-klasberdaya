@@ -30,8 +30,7 @@
                               d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
                     </svg>
                     <span>
-                        <strong>{{ $totalPending }}</strong> indikator menunggu validasi dari
-                        <strong>{{ count($groups) }}</strong> kecamatan
+                        Terdapat <strong>{{ count($groups) }}</strong> kecamatan menunggu validasi
                     </span>
                 </div>
             @endif
@@ -108,7 +107,7 @@
                                     </span>
                                 @elseif ($g['pendingCount'] > 0)
                                     <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                                        {{ $g['pendingCount'] }} menunggu
+                                        Menunggu Validasi
                                     </span>
                                 @else
                                     <span class="inline-flex items-center gap-1 rounded-full {{ $sc['cls'] }} px-2.5 py-0.5 text-xs font-medium">
@@ -157,19 +156,8 @@
 
                         {{-- Stats bar --}}
                         <div class="px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-gray-500 border-t border-gray-100">
-                            <span>
-                                <strong class="text-gray-700">{{ $g['totalIndicators'] }}</strong> indikator
-                            </span>
-                            @if ($g['pendingCount'] > 0)
-                                <span>
-                                    <strong class="text-amber-600">{{ $g['pendingCount'] }}</strong> belum divalidasi
-                                </span>
-                                <span>
-                                    <strong class="text-green-600">{{ $g['totalIndicators'] - $g['pendingCount'] }}</strong> sudah divalidasi
-                                </span>
-                            @endif
                             @if ($g['submittedAt'])
-                                <span class="ml-auto">Dikirim {{ \Carbon\Carbon::parse($g['submittedAt'])->diffForHumans() }}</span>
+                                <span>Dikirim {{ \Carbon\Carbon::parse($g['submittedAt'])->diffForHumans() }}</span>
                             @endif
                         </div>
 
