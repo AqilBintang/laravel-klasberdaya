@@ -37,6 +37,7 @@ use App\Http\Controllers\Kecamatan\PanduanController        as KecamatanPanduan;
 // Controllers — Validator
 use App\Http\Controllers\Validator\DashboardController      as ValidatorDashboard;
 use App\Http\Controllers\Validator\ValidationController     as ValidatorValidation;
+use App\Http\Controllers\Validator\PanduanController        as ValidatorPanduan;
 
 // ============================================================
 //  LANDING — publik, tanpa auth
@@ -250,6 +251,9 @@ Route::prefix('validator')
             Route::post('/{id}',     [ValidatorValidation::class, 'store'])->name('store');
             Route::put('/{id}',      [ValidatorValidation::class, 'update'])->name('update');
         });
+
+        // ── Panduan Rubrik (read-only) ────────────────────────────────
+        Route::get('/panduan', [ValidatorPanduan::class, 'index'])->name('panduan');
     });
 
 // ============================================================

@@ -6,6 +6,7 @@ use App\Helpers\Scoring;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\AssessmentBackup;
+use App\Models\AssessmentRubric;
 use App\Models\AssessmentValidation;
 use App\Models\SelfAssessment;
 use App\Models\UserAssessmentStatus;
@@ -186,7 +187,42 @@ class ValidationController extends Controller
             'totalPending'   => $totalPending,
         ];
 
-        return view('validator.validasi.show', compact('id', 'selfAssessment', 'entries', 'summary'));
+        // ── Load rubrik panduan untuk referensi validator ───────────────
+        // Remap ke indicator_id entries yang aktif menggunakan kunci logis
+        // "categoryCode:indicatorNumber" — sama persis dengan kecamatan.
+        $rubric            = null;
+        $rubricByIndicator = [];
+
+        if ($assessmentId) {
+            $rubric = AssessmentRubric::with([
+                'items',
+                'items.indicator:id,category_id,number,indicator',
+                'items.indicator.category:id,assessment_id,code,name,order',
+            ])->where('assessment_id', $assessmentId)->first();
+
+            if ($rubric) {
+                // Bangun lookup: "categoryCode:indicatorNumber" → rubric item
+                $rubricLookup = [];
+                foreach ($rubric->items as $item) {
+                    $code   = $item->indicator->category->code ?? '';
+                    $number = $item->indicator->number;
+                    $rubricLookup["{$code}:{$number}"] = $item;
+                }
+
+                // Map ke indicator_id entries yang sedang ditampilkan
+                foreach ($entries as $entry) {
+                    $indId  = $entry->indicator?->id;
+                    $code   = $entry->indicator?->category?->code ?? '';
+                    $number = $entry->indicator?->number;
+                    $key    = "{$code}:{$number}";
+                    if ($indId && isset($rubricLookup[$key])) {
+                        $rubricByIndicator[$indId] = $rubricLookup[$key];
+                    }
+                }
+            }
+        }
+
+        return view('validator.validasi.show', compact('id', 'selfAssessment', 'entries', 'summary', 'rubric', 'rubricByIndicator'));
     }
 
     /**
