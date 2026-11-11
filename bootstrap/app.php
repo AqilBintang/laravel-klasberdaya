@@ -23,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // atau kecamatan.login untuk path lainnya.
         $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request): string {
             $path = $request->path();
-            if (str_starts_with($path, 'admin') || str_starts_with($path, 'validator')) {
+            if (str_starts_with($path, 'admin') || str_starts_with($path, 'validator') || str_starts_with($path, 'kabupaten')) {
                 return route('admin.login');
             }
             return route('kecamatan.login');

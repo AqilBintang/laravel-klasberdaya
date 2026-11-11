@@ -10,6 +10,10 @@ use Illuminate\View\View;
 /**
  * Hasil penilaian kecamatan — port dari NextJS KecamatanHasilPage.
  * Menghitung klasifikasi per kategori dan statusAkhir menggunakan Scoring helper.
+ *
+ * Hasil hanya ditampilkan jika SEMUA indikator dalam satu assessment+periode
+ * sudah berstatus VALIDATED. Selama masih ada yang SUBMITTED/DRAFT/REJECTED,
+ * assessment tersebut tidak muncul di halaman hasil.
  */
 class HasilController extends Controller
 {
@@ -17,10 +21,41 @@ class HasilController extends Controller
     {
         $userId = auth()->id();
 
-        // Ambil semua entri yang sudah SUBMITTED / VALIDATED / REJECTED
-        // Sama dengan NextJS: status: { in: ['SUBMITTED','VALIDATED','REJECTED'] }
+        // Langkah 1: cari assessment+periode yang SEMUA indikatornya sudah VALIDATED.
+        // Caranya: ambil semua entry milik user, lalu per (assessmentId, periode)
+        // pastikan tidak ada satu pun entry yang statusnya bukan VALIDATED.
+
+        // Ambil seluruh entry aktif (semua status) untuk menghitung apakah sudah penuh tervalidasi
+        $allEntries = SelfAssessment::where('submitted_by_id', $userId)
+            ->whereIn('status', ['DRAFT', 'SUBMITTED', 'VALIDATED', 'REJECTED'])
+            ->with([
+                'indicator:id,category_id',
+                'indicator.category:id,assessment_id',
+            ])
+            ->get(['id', 'indicator_id', 'status', 'periode', 'submitted_by_id']);
+
+        // Group per (assessmentId, periode) dan cek apakah semua VALIDATED
+        $fullyValidatedKeys = [];
+        $grouped = $allEntries->groupBy(function ($e) {
+            $assessmentId = $e->indicator?->category?->assessment_id;
+            return "{$assessmentId}_{$e->periode}";
+        });
+
+        foreach ($grouped as $key => $group) {
+            $allValidated = $group->every(fn ($e) => $e->status === 'VALIDATED');
+            if ($allValidated && $group->isNotEmpty()) {
+                $fullyValidatedKeys[] = $key;
+            }
+        }
+
+        // Jika tidak ada assessment yang sudah fully validated, tampilkan halaman kosong
+        if (empty($fullyValidatedKeys)) {
+            return view('kecamatan.hasil', ['groups' => []]);
+        }
+
+        // Langkah 2: ambil hanya entry VALIDATED untuk assessment yang sudah selesai
         $entries = SelfAssessment::where('submitted_by_id', $userId)
-            ->whereIn('status', ['SUBMITTED', 'VALIDATED', 'REJECTED'])
+            ->where('status', 'VALIDATED')
             ->with([
                 'indicator:id,category_id,number,indicator,max_score',
                 'indicator.category:id,assessment_id,code,name,order',
@@ -43,6 +78,11 @@ class HasilController extends Controller
 
             $key = "{$assessment->id}_{$entry->periode}";
 
+            // Lewati assessment yang belum fully validated
+            if (!in_array($key, $fullyValidatedKeys, true)) {
+                continue;
+            }
+
             if (!isset($assessmentMap[$key])) {
                 $assessmentMap[$key] = [
                     'assessment'      => $assessment,
@@ -54,28 +94,28 @@ class HasilController extends Controller
                 ];
             }
 
-            // Skor efektif: gunakan validated_score jika sudah divalidasi
-            $validation    = $entry->validations->first();
+            // Skor efektif: gunakan validated_score dari Tim Teknis
+            $validation     = $entry->validations->first();
             $effectiveScore = $validation?->validated_score ?? $entry->score;
 
             // Akumulasi per kategori
             $catId = $category->id;
             if (!isset($assessmentMap[$key]['categories'][$catId])) {
                 $assessmentMap[$key]['categories'][$catId] = [
-                    'id'               => $catId,
-                    'code'             => $category->code,
-                    'name'             => $category->name,
-                    'order'            => $category->order,
-                    'totalScore'       => 0,
-                    'maxScore'         => 0,
-                    'klasifikasi'      => null,
-                    'items'            => [],
+                    'id'          => $catId,
+                    'code'        => $category->code,
+                    'name'        => $category->name,
+                    'order'       => $category->order,
+                    'totalScore'  => 0,
+                    'maxScore'    => 0,
+                    'klasifikasi' => null,
+                    'items'       => [],
                 ];
             }
 
-            $assessmentMap[$key]['categories'][$catId]['totalScore']  += $effectiveScore;
-            $assessmentMap[$key]['categories'][$catId]['maxScore']     += $entry->indicator->max_score;
-            $assessmentMap[$key]['categories'][$catId]['items'][]      = $entry;
+            $assessmentMap[$key]['categories'][$catId]['totalScore'] += $effectiveScore;
+            $assessmentMap[$key]['categories'][$catId]['maxScore']   += $entry->indicator->max_score;
+            $assessmentMap[$key]['categories'][$catId]['items'][]     = $entry;
 
             $assessmentMap[$key]['totalScore']        += $effectiveScore;
             $assessmentMap[$key]['maxScore']          += $entry->indicator->max_score;
@@ -94,7 +134,7 @@ class HasilController extends Controller
                 $cat['klasifikasi'] = Scoring::getKlasifikasiPerKategori($cat['code'], $cat['totalScore']);
 
                 $weight = Scoring::CATEGORY_WEIGHTS[strtoupper($cat['code'])] ?? 0;
-                $cat['weight']       = $weight;
+                $cat['weight']        = $weight;
                 $cat['weightedScore'] = round($cat['totalScore'] * $weight, 2);
 
                 $categoryScores[] = [

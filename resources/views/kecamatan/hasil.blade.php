@@ -28,7 +28,7 @@
                              3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
                 </svg>
                 <p class="text-slate-500 font-medium text-sm">Belum ada hasil assessment</p>
-                <p class="text-xs text-slate-400 mt-1">Submit assessment dan tunggu validasi dari admin</p>
+                <p class="text-xs text-slate-400 mt-1">Hasil akan muncul setelah seluruh indikator selesai divalidasi oleh Tim Teknis</p>
             </div>
 
         @else

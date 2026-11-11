@@ -40,6 +40,7 @@ class RoleMiddleware
             'admin'       => 'ADMIN',
             'validator'   => 'VALIDATOR',
             'kecamatan'   => 'USER',        // role USER di DB = kecamatan di aplikasi
+            'kabupaten'   => 'KABUPATEN',   // role KABUPATEN di DB = kabupaten/kota
         ];
 
         // Resolve alias ke nilai DB; jika alias tidak dikenal, coba cocokkan langsung
@@ -49,7 +50,7 @@ class RoleMiddleware
         );
 
         // SUPER_ADMIN selalu bisa akses semua area admin & validator
-        if ($userRole === 'SUPER_ADMIN' && !in_array('kecamatan', $roles)) {
+        if ($userRole === 'SUPER_ADMIN' && !in_array('kecamatan', $roles) && !in_array('kabupaten', $roles)) {
             return $next($request);
         }
 
@@ -58,6 +59,7 @@ class RoleMiddleware
             return match ($userRole) {
                 'SUPER_ADMIN', 'ADMIN' => redirect()->route('admin.dashboard'),
                 'VALIDATOR'            => redirect()->route('validator.dashboard'),
+                'KABUPATEN'            => redirect()->route('kabupaten.dashboard'),
                 default                => redirect()->route('kecamatan.dashboard'),
             };
         }

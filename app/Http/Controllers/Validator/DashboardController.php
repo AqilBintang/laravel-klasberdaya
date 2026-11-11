@@ -15,7 +15,13 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         // Jumlah kecamatan unik yang punya self-assessment menunggu divalidasi
+        // (hanya yang sudah di-approve kabupaten)
         $totalMenunggu = SelfAssessment::where('status', 'SUBMITTED')
+            ->whereHas('submittedBy', function ($q) {
+                $q->whereHas('kabupatenApprovals', fn ($qa) =>
+                    $qa->where('status', 'APPROVED')
+                );
+            })
             ->distinct('submitted_by_id')
             ->count('submitted_by_id');
 

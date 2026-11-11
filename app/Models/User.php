@@ -70,6 +70,11 @@ class User extends Authenticatable
         return $this->role === 'USER';
     }
 
+    public function isKabupaten(): bool
+    {
+        return $this->role === 'KABUPATEN';
+    }
+
     // ─────────────────────────────────────────────────────────
     // Relations
     // ─────────────────────────────────────────────────────────
@@ -112,5 +117,10 @@ class User extends Authenticatable
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class, 'user_id');
+    }
+
+    public function kabupatenApprovals(): HasMany
+    {
+        return $this->hasMany(\App\Models\KabupatenApproval::class, 'kecamatan_user_id');
     }
 }

@@ -26,6 +26,7 @@ class AuthenticatedSessionController extends Controller
         return match ($role) {
             'SUPER_ADMIN', 'ADMIN' => redirect()->route('admin.dashboard'),
             'VALIDATOR'            => redirect()->route('validator.dashboard'),
+            'KABUPATEN'            => redirect()->route('kabupaten.dashboard'),
             default                => redirect()->route('kecamatan.dashboard'),
         };
     }
@@ -90,7 +91,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Halaman ini untuk ADMIN, SUPER_ADMIN, dan VALIDATOR.
+        // Halaman ini untuk ADMIN, SUPER_ADMIN, VALIDATOR, dan KABUPATEN.
         // Tolak USER (kecamatan) — setara logika di AdminLoginForm.tsx.
         $role = Auth::user()->role;
         if ($role === 'USER') {

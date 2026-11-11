@@ -8,6 +8,7 @@ use App\Models\Assessment;
 use App\Models\AssessmentBackup;
 use App\Models\AssessmentRubric;
 use App\Models\AssessmentValidation;
+use App\Models\KabupatenApproval;
 use App\Models\SelfAssessment;
 use App\Models\UserAssessmentStatus;
 use Illuminate\Http\RedirectResponse;
@@ -34,7 +35,10 @@ class ValidationController extends Controller
     public function index(): View
     {
         // Ambil semua self-assessment SUBMITTED dengan relasi yang dibutuhkan
-        $entries = SelfAssessment::where('status', 'SUBMITTED')
+        // HANYA yang sudah di-approve oleh kabupaten (KabupatenApproval.status = APPROVED)
+        // Filter dicocokkan per (kecamatan_user_id, assessment_id, periode) agar
+        // approval dari assessment/periode lain tidak ikut menjadi gerbang akses.
+        $entries = SelfAssessment::where('self_assessments.status', 'SUBMITTED')
             ->with([
                 'submittedBy:id,name,kecamatan,kabupaten,kecamatan_id,kabupaten_id',
                 'submittedBy.kecamatanWilayah:id,nama',
@@ -42,7 +46,20 @@ class ValidationController extends Controller
                 'indicator.category.assessment:id,title,periode',
                 'validations' => fn ($q) => $q->orderByDesc('validated_at')->take(1),
             ])
-            ->orderBy('submitted_at', 'asc')
+            ->join('assessment_indicators as ai', 'ai.id', '=', 'self_assessments.indicator_id')
+            ->join('assessment_categories as ac', 'ac.id', '=', 'ai.category_id')
+            ->whereExists(function ($query) {
+                // Pastikan ada KabupatenApproval APPROVED yang cocok persis:
+                // kecamatan yang sama, assessment yang sama, periode yang sama
+                $query->select(DB::raw(1))
+                    ->from('kabupaten_approvals')
+                    ->whereColumn('kabupaten_approvals.kecamatan_user_id', 'self_assessments.submitted_by_id')
+                    ->whereColumn('kabupaten_approvals.assessment_id', 'ac.assessment_id')
+                    ->whereColumn('kabupaten_approvals.periode', 'self_assessments.periode')
+                    ->where('kabupaten_approvals.status', 'APPROVED');
+            })
+            ->select('self_assessments.*')
+            ->orderBy('self_assessments.submitted_at', 'asc')
             ->get();
 
         // Group per (userId, assessmentId, periode)

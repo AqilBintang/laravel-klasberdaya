@@ -1,7 +1,8 @@
 {{--
     admin/manage-admin-create.blade.php
-    Form buat akun admin / validator baru.
+    Form buat akun admin / validator / kabupaten baru.
     Hanya SUPER_ADMIN yang bisa akses.
+    Data: $kabupatens
 --}}
 <x-layouts.admin pageTitle="Tambah Akun Admin">
     <div class="space-y-6">
@@ -16,7 +17,7 @@
                 Kembali ke Daftar
             </a>
             <h2 class="text-2xl font-bold text-gray-900">Tambah Akun Admin</h2>
-            <p class="mt-1 text-sm text-gray-500">Buat akun untuk Admin atau Tim Teknis (Validator).</p>
+            <p class="mt-1 text-sm text-gray-500">Buat akun untuk Admin, Tim Teknis (Validator), atau Kabupaten/Kota.</p>
         </div>
 
         <form method="POST" action="{{ route('admin.manage-admin.store') }}" class="space-y-6">
@@ -59,13 +60,36 @@
                         <option value="">-- Pilih Role --</option>
                         <option value="ADMIN"     {{ old('role') === 'ADMIN'     ? 'selected' : '' }}>Admin</option>
                         <option value="VALIDATOR" {{ old('role') === 'VALIDATOR' ? 'selected' : '' }}>Tim Teknis (Validator)</option>
+                        <option value="KABUPATEN" {{ old('role') === 'KABUPATEN' ? 'selected' : '' }}>Kabupaten / Kota</option>
                     </select>
                     <p class="mt-1 text-xs text-gray-400">
                         <strong>Admin</strong> — mengelola assessment dan akun kecamatan. &nbsp;
-                        <strong>Tim Teknis</strong> — memvalidasi hasil pengisian kecamatan.
+                        <strong>Tim Teknis</strong> — memvalidasi hasil pengisian kecamatan. &nbsp;
+                        <strong>Kabupaten/Kota</strong> — menyetujui pengisian sebelum ke tim teknis.
                     </p>
                     @error('role')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
+
+                {{-- Kabupaten/Kota — muncul hanya jika role = KABUPATEN --}}
+                <div id="field-kabupaten" class="{{ old('role') === 'KABUPATEN' ? '' : 'hidden' }}">
+                    <label for="kabupaten_id" class="block text-sm font-medium text-gray-700 mb-1">
+                        Kabupaten / Kota yang Dikelola <span class="text-red-500">*</span>
+                    </label>
+                    <select id="kabupaten_id" name="kabupaten_id"
+                            class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 @error('kabupaten_id') border-red-300 @enderror">
+                        <option value="">-- Pilih Kabupaten/Kota --</option>
+                        @foreach ($kabupatens as $kab)
+                            <option value="{{ $kab->id }}" {{ old('kabupaten_id') == $kab->id ? 'selected' : '' }}>
+                                {{ $kab->nama }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-400">
+                        User ini hanya bisa mereview kecamatan yang berada di kabupaten/kota ini.
+                    </p>
+                    @error('kabupaten_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+
             </div>
 
             <div class="rounded-xl border border-gray-200 bg-white shadow-sm p-6 space-y-5">
@@ -104,4 +128,24 @@
             </div>
         </form>
     </div>
+
+    @push('scripts')
+    <script>
+        (function () {
+            var roleEl      = document.getElementById('role');
+            var fieldKab    = document.getElementById('field-kabupaten');
+            var kabupatenEl = document.getElementById('kabupaten_id');
+
+            function toggleKabupaten() {
+                var isKabupaten = roleEl.value === 'KABUPATEN';
+                fieldKab.classList.toggle('hidden', !isKabupaten);
+                kabupatenEl.required = isKabupaten;
+            }
+
+            roleEl?.addEventListener('change', toggleKabupaten);
+            toggleKabupaten(); // jalankan saat halaman pertama kali load (untuk old value)
+        })();
+    </script>
+    @endpush
+
 </x-layouts.admin>

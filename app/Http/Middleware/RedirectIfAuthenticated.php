@@ -39,6 +39,7 @@ class RedirectIfAuthenticated
         return match ($role) {
             'SUPER_ADMIN', 'ADMIN' => redirect()->route('admin.dashboard'),
             'VALIDATOR'            => redirect()->route('validator.dashboard'),
+            'KABUPATEN'            => redirect()->route('kabupaten.dashboard'),
             default                => redirect()->route('kecamatan.dashboard'), // USER
         };
     }

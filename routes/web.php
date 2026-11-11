@@ -39,6 +39,10 @@ use App\Http\Controllers\Validator\DashboardController      as ValidatorDashboar
 use App\Http\Controllers\Validator\ValidationController     as ValidatorValidation;
 use App\Http\Controllers\Validator\PanduanController        as ValidatorPanduan;
 
+// Controllers — Kabupaten
+use App\Http\Controllers\Kabupaten\DashboardController      as KabupatenDashboard;
+use App\Http\Controllers\Kabupaten\ApprovalController       as KabupatenApproval;
+
 // ============================================================
 //  LANDING — publik, tanpa auth
 // ============================================================
@@ -80,10 +84,7 @@ Route::middleware('auth')->group(function () {
         ->name('kecamatan.logout');
 });
 
-// ============================================================
 //  ADMIN  (ADMIN + SUPER_ADMIN)
-// ============================================================
-
 Route::prefix('admin')
     ->middleware(['auth', 'role:admin,super_admin'])
     ->name('admin.')
@@ -257,6 +258,28 @@ Route::prefix('validator')
     });
 
 // ============================================================
+//  KABUPATEN / KOTA
+// ============================================================
+
+Route::prefix('kabupaten')
+    ->middleware(['auth', 'role:kabupaten'])
+    ->name('kabupaten.')
+    ->group(function () {
+
+        // Redirect /kabupaten → /kabupaten/dashboard
+        Route::get('/', fn () => redirect()->route('kabupaten.dashboard'));
+
+        Route::get('/dashboard', [KabupatenDashboard::class, 'index'])->name('dashboard');
+
+        // ── Review Assessment ─────────────────────────────────────────
+        Route::prefix('review')->name('review.')->group(function () {
+            Route::get('/',       [KabupatenApproval::class, 'index'])->name('index');
+            Route::get('/{id}',   [KabupatenApproval::class, 'show'])->name('show');
+            Route::post('/{id}',  [KabupatenApproval::class, 'store'])->name('store');
+        });
+    });
+
+// ============================================================
 //  KECAMATAN  (role USER di DB)
 // ============================================================
 
@@ -272,12 +295,13 @@ Route::prefix('kecamatan')
 
         // ── Assessment ────────────────────────────────────────────────
         Route::prefix('assessment')->name('assessment.')->group(function () {
-            Route::get('/',          [KecamatanAssessment::class, 'index'])->name('index');
-            Route::get('/{id}',      [KecamatanAssessment::class, 'show'])->name('show');
-            Route::post('/{id}',     [KecamatanAssessment::class, 'submit'])->name('submit');
-            Route::put('/{id}',      [KecamatanAssessment::class, 'update'])->name('update');
+            Route::get('/',              [KecamatanAssessment::class, 'index'])->name('index');
+            Route::get('/{id}',          [KecamatanAssessment::class, 'show'])->name('show');
+            Route::get('/{id}/review',   [KecamatanAssessment::class, 'review'])->name('review');
+            Route::post('/{id}',         [KecamatanAssessment::class, 'submit'])->name('submit');
+            Route::put('/{id}',          [KecamatanAssessment::class, 'update'])->name('update');
             // Draft auto-save
-            Route::post('/{id}/draft', [KecamatanAssessment::class, 'saveDraft'])->name('draft');
+            Route::post('/{id}/draft',   [KecamatanAssessment::class, 'saveDraft'])->name('draft');
         });
 
         // ── Hasil ─────────────────────────────────────────────────────

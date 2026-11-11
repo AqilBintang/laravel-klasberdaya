@@ -1,8 +1,8 @@
 {{--
     admin/manage-admin-edit.blade.php
-    Form edit akun admin / validator.
+    Form edit akun admin / validator / kabupaten.
     Hanya SUPER_ADMIN yang bisa akses.
-    Data: $id, $user
+    Data: $id, $user, $kabupatens
 --}}
 <x-layouts.admin pageTitle="Edit Akun Admin">
     <div class="space-y-6">
@@ -49,7 +49,7 @@
                     @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
 
-                {{-- Role — super admin tidak bisa ubah rolenya sendiri --}}
+                {{-- Role --}}
                 <div>
                     <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
                         Role <span class="text-red-500">*</span>
@@ -65,10 +65,34 @@
                                 class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 @error('role') border-red-300 @enderror">
                             <option value="ADMIN"     {{ old('role', $user->role) === 'ADMIN'     ? 'selected' : '' }}>Admin</option>
                             <option value="VALIDATOR" {{ old('role', $user->role) === 'VALIDATOR' ? 'selected' : '' }}>Tim Teknis (Validator)</option>
+                            <option value="KABUPATEN" {{ old('role', $user->role) === 'KABUPATEN' ? 'selected' : '' }}>Kabupaten / Kota</option>
                         </select>
                         @error('role')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     @endif
                 </div>
+
+                {{-- Kabupaten/Kota — muncul hanya jika role = KABUPATEN --}}
+                @if ($user->role !== 'SUPER_ADMIN')
+                <div id="field-kabupaten" class="{{ old('role', $user->role) === 'KABUPATEN' ? '' : 'hidden' }}">
+                    <label for="kabupaten_id" class="block text-sm font-medium text-gray-700 mb-1">
+                        Kabupaten / Kota yang Dikelola <span class="text-red-500">*</span>
+                    </label>
+                    <select id="kabupaten_id" name="kabupaten_id"
+                            class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 @error('kabupaten_id') border-red-300 @enderror">
+                        <option value="">-- Pilih Kabupaten/Kota --</option>
+                        @foreach ($kabupatens as $kab)
+                            <option value="{{ $kab->id }}"
+                                {{ old('kabupaten_id', $user->kabupaten_id) == $kab->id ? 'selected' : '' }}>
+                                {{ $kab->nama }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-400">
+                        User ini hanya bisa mereview kecamatan yang berada di kabupaten/kota ini.
+                    </p>
+                    @error('kabupaten_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                @endif
 
                 {{-- Status aktif --}}
                 <div>
@@ -130,4 +154,26 @@
             </div>
         </form>
     </div>
+
+    @push('scripts')
+    <script>
+        (function () {
+            var roleEl      = document.getElementById('role');
+            var fieldKab    = document.getElementById('field-kabupaten');
+            var kabupatenEl = document.getElementById('kabupaten_id');
+
+            if (!roleEl || !fieldKab) return; // super admin: role field tidak ada
+
+            function toggleKabupaten() {
+                var isKabupaten = roleEl.value === 'KABUPATEN';
+                fieldKab.classList.toggle('hidden', !isKabupaten);
+                if (kabupatenEl) kabupatenEl.required = isKabupaten;
+            }
+
+            roleEl.addEventListener('change', toggleKabupaten);
+            toggleKabupaten();
+        })();
+    </script>
+    @endpush
+
 </x-layouts.admin>

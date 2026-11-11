@@ -9,6 +9,7 @@ use App\Models\AssessmentIndicator;
 use App\Models\AssessmentRubric;
 use App\Models\AssessmentVersion;
 use App\Models\IndicatorChange;
+use App\Models\KabupatenApproval;
 use App\Models\SelfAssessment;
 use App\Models\UserAssessmentStatus;
 use Illuminate\Http\JsonResponse;
@@ -412,6 +413,89 @@ class AssessmentController extends Controller
     }
 
     /**
+     * GET /kecamatan/assessment/{id}/review
+     * Halaman review jawaban sebelum submit.
+     */
+    public function review(string $id): View
+    {
+        $userId = auth()->id();
+
+        $assessment = Assessment::findOrFail($id);
+
+        if (!in_array($assessment->status, ['PUBLISHED', 'REVISION'])) {
+            abort(404);
+        }
+
+        $userStatus = UserAssessmentStatus::where('user_id', $userId)
+            ->where('assessment_id', $id)
+            ->first();
+
+        // Tentukan versi yang di-load (sama dengan show())
+        $versionToLoad = $userStatus?->current_version ?? $assessment->current_version;
+        if ($userStatus && (
+            $userStatus->status === 'HAS_UPDATE' ||
+            $userStatus->status === 'NEEDS_REVISION' ||
+            $userStatus->latest_version > $userStatus->current_version
+        )) {
+            $versionToLoad = $userStatus->latest_version;
+        }
+
+        $versionRecord = AssessmentVersion::where('assessment_id', $id)
+            ->where('version_number', $versionToLoad)
+            ->first()
+            ?? AssessmentVersion::where('assessment_id', $id)
+                ->where('version_number', 1)
+                ->firstOrFail();
+
+        $categories = AssessmentCategory::where('assessment_id', $id)
+            ->where('version_id', $versionRecord->id)
+            ->orderBy('order')
+            ->with(['indicators' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        $assessment->setRelation('categories', $categories);
+
+        $existingEntries = SelfAssessment::where('submitted_by_id', $userId)
+            ->where('periode', $assessment->periode)
+            ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $id))
+            ->with(['indicator.category:id,assessment_id,code'])
+            ->orderByDesc('updated_at')
+            ->get();
+
+        // Buat map indicator_id → entry untuk lookup cepat
+        $entriesMap = $existingEntries->keyBy('indicator_id');
+
+        // Hitung ringkasan
+        $totalIndicators = $categories->sum(fn ($c) => $c->indicators->count());
+        $filledCount     = 0;
+        $totalScore      = 0;
+        $maxTotalScore   = 0;
+
+        foreach ($categories as $cat) {
+            foreach ($cat->indicators as $ind) {
+                $maxTotalScore += $ind->max_score;
+                $entry = $entriesMap->get($ind->id);
+                if ($entry && trim($entry->description ?? '') !== '') {
+                    $filledCount++;
+                    $totalScore += (int) ($entry->score ?? 0);
+                }
+            }
+        }
+
+        return view('kecamatan.assessment.review', compact(
+            'id',
+            'assessment',
+            'categories',
+            'entriesMap',
+            'totalIndicators',
+            'filledCount',
+            'totalScore',
+            'maxTotalScore',
+            'userStatus',
+        ));
+    }
+
+    /**
      * POST /kecamatan/assessment/{id}/draft
      * Auto-save draft jawaban.
      */
@@ -602,6 +686,22 @@ class AssessmentController extends Controller
                 'latest_version' => $assessment->current_version,
                 'last_activity_at' => now(),
             ]);
+
+            // Buat atau reset KabupatenApproval → PENDING
+            // agar kabupaten bisa mereview sebelum tim teknis memvalidasi
+            KabupatenApproval::updateOrCreate(
+                [
+                    'kecamatan_user_id' => $userId,
+                    'assessment_id'     => (int) $id,
+                    'periode'           => $assessment->periode,
+                ],
+                [
+                    'status'            => 'PENDING',
+                    'kabupaten_user_id' => null,
+                    'notes'             => null,
+                    'reviewed_at'       => null,
+                ]
+            );
         });
 
         return redirect()->route('kecamatan.assessment.index')
@@ -670,6 +770,21 @@ class AssessmentController extends Controller
                 'current_version' => $userStatus->latest_version,
                 'last_activity_at' => now(),
             ]);
+
+            // Reset KabupatenApproval → PENDING saat resubmit
+            KabupatenApproval::updateOrCreate(
+                [
+                    'kecamatan_user_id' => $userId,
+                    'assessment_id'     => (int) $id,
+                    'periode'           => $assessment->periode,
+                ],
+                [
+                    'status'            => 'PENDING',
+                    'kabupaten_user_id' => null,
+                    'notes'             => null,
+                    'reviewed_at'       => null,
+                ]
+            );
         });
 
         return redirect()->route('kecamatan.assessment.index')

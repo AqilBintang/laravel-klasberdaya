@@ -58,9 +58,10 @@
                         @foreach ($admins as $a)
                             @php
                                 $roleMap = [
-                                    'SUPER_ADMIN' => ['label' => 'Super Admin', 'cls' => 'bg-red-100 text-red-700'],
-                                    'ADMIN'       => ['label' => 'Admin',       'cls' => 'bg-blue-100 text-blue-700'],
-                                    'VALIDATOR'   => ['label' => 'Tim Teknis',  'cls' => 'bg-purple-100 text-purple-700'],
+                                    'SUPER_ADMIN' => ['label' => 'Super Admin',     'cls' => 'bg-red-100 text-red-700'],
+                                    'ADMIN'       => ['label' => 'Admin',           'cls' => 'bg-blue-100 text-blue-700'],
+                                    'VALIDATOR'   => ['label' => 'Tim Teknis',      'cls' => 'bg-purple-100 text-purple-700'],
+                                    'KABUPATEN'   => ['label' => 'Kabupaten/Kota',  'cls' => 'bg-indigo-100 text-indigo-700'],
                                 ];
                                 $r = $roleMap[$a->role] ?? ['label' => $a->role, 'cls' => 'bg-gray-100 text-gray-600'];
                                 $isSelf      = $a->id === auth()->id();
@@ -73,6 +74,11 @@
                                     {{ $a->name }}
                                     @if ($isSelf)
                                         <span class="ml-1.5 text-xs text-gray-400">(Anda)</span>
+                                    @endif
+                                    @if ($a->role === 'KABUPATEN' && ($a->kabupaten ?? $a->kabupatenWilayah?->nama))
+                                        <p class="text-xs text-indigo-500 font-normal mt-0.5">
+                                            {{ $a->kabupatenWilayah?->nama ?? $a->kabupaten }}
+                                        </p>
                                     @endif
                                 </td>
                                 <td class="px-5 py-4 text-gray-600">{{ $a->email }}</td>
