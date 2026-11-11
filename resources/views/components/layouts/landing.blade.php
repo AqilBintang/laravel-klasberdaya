@@ -33,7 +33,7 @@
         <nav
             id="main-nav"
             aria-label="Navigasi Utama"
-            class="mx-auto flex items-center justify-between px-4 sm:px-6 py-3
+            class="mx-auto relative flex items-center justify-between px-4 sm:px-6 py-3
                    w-full bg-white border-b border-gray-100 shadow-sm
                    transition-all duration-300 ease-in-out"
         >
@@ -43,14 +43,14 @@
                 <img src="/logo/kecamatan-berdaya.png" alt="Klas Berdaya" class="h-9 sm:h-11 w-auto object-contain translate-y-px">
             </a>
 
-            {{-- Desktop nav links --}}
-            <ul class="hidden md:flex items-center gap-6" role="list">
-                @php
-                    $navItems = [
-                        ['label' => 'Home',    'href' => route('landing.home')],
-                        ['label' => 'FAQ',     'href' => route('landing.faq')],
-                    ];
-                @endphp
+            {{-- Desktop nav links — tengah absolut --}}
+            @php
+                $navItems = [
+                    ['label' => 'Home', 'href' => route('landing.home')],
+                    ['label' => 'FAQ',  'href' => route('landing.faq')],
+                ];
+            @endphp
+            <ul class="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2" role="list">
                 @foreach ($navItems as $item)
                     @php $active = request()->url() === $item['href']; @endphp
                     <li>
@@ -67,31 +67,29 @@
                         </a>
                     </li>
                 @endforeach
-
-                {{-- Login buttons --}}
-                <li>
-                    <a
-                        href="{{ route('kecamatan.login') }}"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-300 transition-colors duration-200"
-                    >
-                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                        </svg>
-                        Login Kecamatan
-                    </a>
-                </li>
-                <li>
-                    <a
-                        href="{{ route('admin.login') }}"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-sky-700 transition-colors duration-200 shadow-sm"
-                    >
-                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Login Admin
-                    </a>
-                </li>
             </ul>
+
+            {{-- Login buttons — kanan --}}
+            <div class="hidden md:flex items-center gap-2">
+                <a
+                    href="{{ route('kecamatan.login') }}"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-300 transition-colors duration-200"
+                >
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    Login Kecamatan
+                </a>
+                <a
+                    href="{{ route('admin.login') }}"
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-sky-700 transition-colors duration-200 shadow-sm"
+                >
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Login Admin
+                </a>
+            </div>
 
             {{-- Mobile hamburger --}}
             <button
