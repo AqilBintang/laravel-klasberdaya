@@ -104,14 +104,12 @@ class ValidationController extends Controller
             $assessmentId = $assessment?->id;
             $isOutdated   = ($statusMap["{$first->submitted_by_id}:{$assessmentId}"] ?? null) === 'NEEDS_REVISION';
 
-            // Overall status: VALIDATED jika semua sudah punya validasi APPROVED
-            $allValidated = $group->every(fn ($s) =>
-                $s->validations->first()?->status === 'APPROVED'
-            );
+            // Overall status: semua entri di $group sudah dijamin SUBMITTED oleh query di atas.
+            // Cukup cek apakah ada yang pernah di-reject (validasi terakhir REJECTED).
             $anyRejected  = $group->contains(fn ($s) =>
                 $s->validations->first()?->status === 'REJECTED'
             );
-            $overallStatus = $allValidated ? 'VALIDATED' : ($anyRejected ? 'REJECTED' : 'SUBMITTED');
+            $overallStatus = $anyRejected ? 'REJECTED' : 'SUBMITTED';
 
             $groups[] = [
                 'key'               => $key,

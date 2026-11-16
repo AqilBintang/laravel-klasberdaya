@@ -110,12 +110,21 @@
 
         {{-- Distribusi Klasifikasi --}}
         @isset($summary)
+        @php
+            // Total kecamatan yang punya klasifikasi (gabungan assessment + snapshot)
+            // Dipakai sebagai penyebut persentase distribusi agar selalu konsisten
+            // dengan jumlah yang dihitung di $summary (mencegah nilai > 100%).
+            $totalClassified = ($summary['Rintisan']   ?? 0)
+                             + ($summary['Berkembang'] ?? 0)
+                             + ($summary['Maju']       ?? 0)
+                             + ($summary['Unggul']     ?? 0);
+        @endphp
         <div class="rounded-xl border bg-white shadow-sm">
             <div class="px-6 py-4 border-b border-gray-100">
                 <h3 class="font-semibold text-gray-900">Distribusi Klasifikasi</h3>
                 <p class="text-sm text-gray-500 mt-1">
                     Breakdown klasifikasi kecamatan untuk tahun {{ $activeYear ?? '&mdash;' }}
-                    (dari {{ $totalValidated ?? 0 }} kecamatan yang tervalidasi)
+                    (dari {{ $totalClassified }} kecamatan terklasifikasi)
                 </p>
             </div>
             <div class="p-6">
@@ -126,18 +135,17 @@
                         'Maju'       => ['text' => 'text-blue-700',  'bar' => 'bg-blue-400'],
                         'Unggul'     => ['text' => 'text-green-700', 'bar' => 'bg-green-500'],
                     ];
-                    $totalVal = $totalValidated ?? 0;
                 @endphp
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     @foreach ($levels as $level => $cls)
                         @php
                             $count = $summary[$level] ?? 0;
-                            $pct = $totalVal > 0 ? round(($count / $totalVal) * 100) : 0;
+                            $pct = $totalClassified > 0 ? round(($count / $totalClassified) * 100) : 0;
                         @endphp
                         <div class="text-center">
                             <p class="font-bold text-2xl text-gray-900">{{ $count }}</p>
                             <p class="text-sm font-medium {{ $cls['text'] }}">{{ $level }}</p>
-                            <p class="text-xs text-gray-500">{{ $pct }}% dari tervalidasi</p>
+                            <p class="text-xs text-gray-500">{{ $pct }}% dari total</p>
                         </div>
                     @endforeach
                 </div>
@@ -148,7 +156,7 @@
                         @foreach ($levels as $level => $cls)
                             @php
                                 $count = $summary[$level] ?? 0;
-                                $pct = $totalVal > 0 ? ($count / $totalVal) * 100 : 0;
+                                $pct = $totalClassified > 0 ? ($count / $totalClassified) * 100 : 0;
                             @endphp
                             @if ($pct > 0)
                                 <div class="h-full {{ $cls['bar'] }}" style="width: {{ $pct }}%"

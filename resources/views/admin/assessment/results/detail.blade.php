@@ -242,5 +242,127 @@
     </div>
     @endif
 
+    {{-- Aksi admin: kembalikan hasil verifikasi tim teknis --}}
+    @if (!empty($canReturn) && !empty($periode))
+        <div class="rounded-xl border border-amber-200 bg-amber-50/40 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-amber-100 bg-amber-50/70">
+                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Aksi Admin: Kembalikan Hasil Verifikasi
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">
+                    Hasil verifikasi tim teknis sudah selesai. Jika hasil ini perlu dicek ulang atau diperbaiki kecamatan,
+                    kembalikan submission berikut. Alasan wajib diisi dan akan tercatat di Audit Log.
+                </p>
+            </div>
+
+            <div class="px-6 py-5">
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="button"
+                            x-data=""
+                            x-on:click="$dispatch('open-modal', 'confirm-reverify')"
+                            class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Verifikasi Ulang
+                    </button>
+                    <button type="button"
+                            x-data=""
+                            x-on:click="$dispatch('open-modal', 'confirm-revision')"
+                            class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                        </svg>
+                        Kembalikan ke Kecamatan
+                    </button>
+                    <span class="text-xs text-gray-400">Periode {{ $periode }}</span>
+                </div>
+            </div>
+        </div>
+
+        {{-- Modal: Konfirmasi Verifikasi Ulang --}}
+        <x-modal name="confirm-reverify" :show="old('action') === 'reverify' && $errors->any()" focusable>
+            <form method="POST" action="{{ route('admin.assessment.results.return', [$userId, $assessmentId]) }}" class="p-6">
+                @csrf
+                <input type="hidden" name="periode" value="{{ $periode }}">
+                <input type="hidden" name="action" value="reverify">
+
+                <h2 class="text-lg font-semibold text-gray-900">Konfirmasi Verifikasi Ulang</h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    Hasil verifikasi akan dikembalikan ke antrian validator untuk diverifikasi ulang.
+                    Snapshot hasil dihapus sementara dan muncul lagi setelah re-validasi selesai.
+                </p>
+
+                <div class="mt-4">
+                    <label for="reason-reverify" class="block text-sm font-medium text-gray-700 mb-1">Alasan <span class="text-red-500">*</span></label>
+                    <textarea id="reason-reverify" name="reason" rows="3" required minlength="5" maxlength="2000"
+                              placeholder="Contoh: skor indikator A3 perlu dicek ulang karena dokumen pendukung baru diterima."
+                              class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-sky-400 focus:ring-1 focus:ring-sky-400 outline-none">{{ old('reason') }}</textarea>
+                    @error('reason')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" x-on:click="$dispatch('close')"
+                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Ya, Verifikasi Ulang
+                    </button>
+                </div>
+            </form>
+        </x-modal>
+
+        {{-- Modal: Konfirmasi Kembalikan ke Kecamatan --}}
+        <x-modal name="confirm-revision" :show="old('action') === 'revision' && $errors->any()" focusable>
+            <form method="POST" action="{{ route('admin.assessment.results.return', [$userId, $assessmentId]) }}" class="p-6">
+                @csrf
+                <input type="hidden" name="periode" value="{{ $periode }}">
+                <input type="hidden" name="action" value="revision">
+
+                <h2 class="text-lg font-semibold text-gray-900">Konfirmasi Kembalikan ke Kecamatan</h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    Hasil verifikasi akan dikembalikan ke kecamatan untuk diperbaiki. Kecamatan harus mengisi ulang,
+                    lalu kabupaten menyetujui dan validator memvalidasi ulang.
+                </p>
+
+                <div class="mt-4">
+                    <label for="reason-revision" class="block text-sm font-medium text-gray-700 mb-1">Alasan <span class="text-red-500">*</span></label>
+                    <textarea id="reason-revision" name="reason" rows="3" required minlength="5" maxlength="2000"
+                              placeholder="Contoh: dokumen pendukung indikator B2 belum lengkap, mohon dilengkapi."
+                              class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none">{{ old('reason') }}</textarea>
+                    @error('reason')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                    <p class="text-xs text-gray-400 mt-1">Alasan ini ditampilkan ke kecamatan sebagai catatan perbaikan per indikator.</p>
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" x-on:click="$dispatch('close')"
+                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                        </svg>
+                        Ya, Kembalikan ke Kecamatan
+                    </button>
+                </div>
+            </form>
+        </x-modal>
+    @endif
+
 </div>
 </x-layouts.admin>

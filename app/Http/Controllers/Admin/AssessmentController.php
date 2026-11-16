@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Helpers\Scoring;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
+use App\Models\AssessmentBackup;
 use App\Models\AssessmentCategory;
 use App\Models\AssessmentIndicator;
+use App\Models\AssessmentValidation;
 use App\Models\AssessmentVersion;
+use App\Models\AuditLog;
 use App\Models\IndicatorChange;
+use App\Models\KabupatenApproval;
 use App\Models\SelfAssessment;
 use App\Models\User;
 use App\Models\UserAssessmentStatus;
@@ -862,6 +866,18 @@ class AssessmentController extends Controller
             return $kabCmp !== 0 ? $kabCmp : strcmp($a['kecamatan'] ?? '', $b['kecamatan'] ?? '');
         });
 
+        // ── Filter pencarian (kabupaten/kota atau kecamatan) ─────────────
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $needle  = mb_strtolower($search);
+            $results = array_values(array_filter($results, function ($r) use ($needle) {
+                $kab = mb_strtolower((string) ($r['kabupaten'] ?? ''));
+                $kec = mb_strtolower((string) ($r['kecamatan'] ?? ''));
+                return ($kab !== '' && str_contains($kab, $needle))
+                    || ($kec !== '' && str_contains($kec, $needle));
+            }));
+        }
+
         // ── Pagination manual ────────────────────────────────────────────
         $perPage     = 20;
         $currentPage = max(1, (int) $request->query('page', 1));
@@ -875,6 +891,7 @@ class AssessmentController extends Controller
             'allResults'   => $results,
             'years'        => $years,
             'selectedYear' => $periodeFilter,
+            'search'       => $search,
             'currentPage'  => $currentPage,
             'totalPages'   => $totalPages,
             'total'        => $total,
@@ -1010,6 +1027,12 @@ class AssessmentController extends Controller
         $statusAkhir = Scoring::getStatusAkhir($totalScore, $maxScore, $categoryScores);
         $pct         = $maxScore > 0 ? round(($totalScore / $maxScore) * 100) : 0;
 
+        // Boleh dikembalikan admin hanya jika submission ini sudah FULLY VALIDATED
+        // (hasil verifikasi tim teknis sudah jadi) dan ada periode spesifik.
+        $canReturn = !empty($periode)
+            && $entriesRaw->isNotEmpty()
+            && $entriesRaw->every(fn ($e) => $e->status === 'VALIDATED');
+
         return view('admin.assessment.results.detail', [
             'userId'       => $userId,
             'assessmentId' => $assessmentId,
@@ -1022,6 +1045,168 @@ class AssessmentController extends Controller
             'maxScore'     => $maxScore,
             'statusAkhir'  => $statusAkhir,
             'pct'          => $pct,
+            'canReturn'    => $canReturn,
         ]);
+    }
+
+    /**
+     * POST /admin/assessment/results/{userId}/{assessmentId}/return
+     *
+     * Aksi admin: mengembalikan hasil verifikasi tim teknis yang sudah VALIDATED.
+     * Mirip fitur tolak/perbaiki verifikator, tapi di level admin — untuk skenario
+     * di mana hasil verifikasi sudah jadi namun perlu dicek ulang/diperbaiki.
+     *
+     * Dua mode (dipilih lewat tombol submit bernama `action`):
+     *   - reverify  : kembalikan ke antrian validator untuk diverifikasi ulang.
+     *                 SelfAssessment VALIDATED -> SUBMITTED, UserAssessmentStatus -> SUBMITTED,
+     *                 KabupatenApproval tetap APPROVED, snapshot assessment_backups dihapus.
+     *   - revision : kembalikan ke kecamatan untuk diperbaiki.
+     *                 SelfAssessment VALIDATED -> DRAFT, UserAssessmentStatus -> NEEDS_REVISION,
+     *                 KabupatenApproval -> NEEDS_REVISION, tambah AssessmentValidation
+     *                 REVISION_NEEDED per indikator (alasan admin), snapshot dihapus.
+     *
+     * Hanya berlaku untuk submission yang sudah FULLY VALIDATED (hasil verifikasi jadi).
+     * Alasan wajib, dicatat di Audit Log.
+     */
+    public function returnSubmission(Request $request, string $userId, string $assessmentId): RedirectResponse
+    {
+        $request->validate([
+            'periode' => ['required', 'string', 'max:20'],
+            'action'  => ['required', 'in:reverify,revision'],
+            'reason'  => ['required', 'string', 'min:5', 'max:2000'],
+        ], [
+            'periode.required' => 'Periode tidak valid.',
+            'action.required'  => 'Aksi wajib dipilih.',
+            'action.in'         => 'Aksi tidak valid.',
+            'reason.required'  => 'Alasan wajib diisi.',
+            'reason.min'        => 'Alasan minimal 5 karakter.',
+            'reason.max'        => 'Alasan maksimal 2000 karakter.',
+        ]);
+
+        $user       = User::findOrFail($userId);
+        $assessment = Assessment::findOrFail($assessmentId);
+        $periode    = $request->periode;
+        $reason     = trim($request->reason);
+        $action     = $request->action;
+        $actorId    = auth()->id();
+
+        // Ambil semua entri submission ini (user + assessment + periode)
+        $entries = SelfAssessment::where('submitted_by_id', $userId)
+            ->where('periode', $periode)
+            ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+            ->get(['id', 'status']);
+
+        // Hanya boleh jika FULLY VALIDATED (hasil verifikasi sudah jadi)
+        if ($entries->isEmpty() || !$entries->every(fn ($e) => $e->status === 'VALIDATED')) {
+            return back()->with('error', 'Hanya submission yang sudah seluruhnya tervalidasi yang dapat dikembalikan.');
+        }
+
+        // Nama kecamatan untuk hapus snapshot (sama dengan maybeGenerateBackupSnapshot)
+        $user->load(['kecamatanWilayah:id,nama']);
+        $kecamatanNama   = $user->kecamatanWilayah?->nama ?? $user->kecamatan ?? $user->name ?? '';
+        $assessmentTitle = $assessment->title;
+        $notePrefix      = '[Dikembalikan Admin] ';
+        $auditAction     = $action === 'reverify'
+            ? 'ADMIN_RETURNED_REVERIFY'
+            : 'ADMIN_RETURNED_REVISION';
+
+        DB::transaction(function () use (
+            $userId, $assessmentId, $periode, $reason, $action, $actorId,
+            $entries, $kecamatanNama, $assessmentTitle, $notePrefix, $auditAction, $request
+        ) {
+            if ($action === 'reverify') {
+                // ── Kembalikan ke antrian validator ─────────────────────────
+                SelfAssessment::where('submitted_by_id', $userId)
+                    ->where('periode', $periode)
+                    ->where('status', 'VALIDATED')
+                    ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                    ->update(['status' => 'SUBMITTED']);
+
+                UserAssessmentStatus::where('user_id', $userId)
+                    ->where('assessment_id', $assessmentId)
+                    ->update(['status' => 'SUBMITTED', 'last_activity_at' => now()]);
+
+                // KabupatenApproval tetap APPROVED -> gerbang validator tetap terbuka
+
+                // Hapus semua record AssessmentValidation lama untuk submission ini
+                // agar validator melihat status SUBMITTED (bukan terdeteksi VALIDATED
+                // dari validasi lama) dan bisa memulai verifikasi ulang dari awal.
+                AssessmentValidation::whereIn('self_assessment_id', $entries->pluck('id'))->delete();
+            } else {
+                // ── Kembalikan ke kecamatan untuk diperbaiki ────────────────
+                SelfAssessment::where('submitted_by_id', $userId)
+                    ->where('periode', $periode)
+                    ->where('status', 'VALIDATED')
+                    ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                    ->update(['status' => 'DRAFT']);
+
+                UserAssessmentStatus::where('user_id', $userId)
+                    ->where('assessment_id', $assessmentId)
+                    ->update(['status' => 'NEEDS_REVISION', 'last_activity_at' => now()]);
+
+                // Reset gerbang kabupaten -> NEEDS_REVISION. Resubmit kecamatan
+                // akan reset ke PENDING, lalu kabupaten approve ulang.
+                KabupatenApproval::where('kecamatan_user_id', $userId)
+                    ->where('assessment_id', $assessmentId)
+                    ->where('periode', $periode)
+                    ->update([
+                        'status'            => 'NEEDS_REVISION',
+                        'notes'             => $notePrefix . $reason,
+                        'kabupaten_user_id' => $actorId,
+                        'reviewed_at'       => now(),
+                    ]);
+
+                // Tambah record AssessmentValidation REVISION_NEEDED per indikator
+                // -> kecamatan melihat penanda per-indikator "perlu diperbaiki" di form,
+                //    konsisten dengan feedback verifikator. History validasi terjaga (append).
+                $now = now()->toDateTimeString();
+                $validationRows = $entries->map(fn ($e) => [
+                    'self_assessment_id' => $e->id,
+                    'validator_id'       => $actorId,
+                    'status'             => 'REVISION_NEEDED',
+                    'validated_score'    => null,
+                    'notes'              => $notePrefix . $reason,
+                    'validated_at'       => $now,
+                ])->all();
+
+                if (!empty($validationRows)) {
+                    AssessmentValidation::insert($validationRows);
+                }
+            }
+
+            // ── Hapus snapshot hasil verifikasi (assessment_backups) ──────────
+            // Data usang karena submission dikembalikan; regenerate otomatis
+            // saat validasi ulang selesai (maybeGenerateBackupSnapshot).
+            AssessmentBackup::where('assessment_title', $assessmentTitle)
+                ->where('periode', $periode)
+                ->where('kecamatan', $kecamatanNama)
+                ->delete();
+
+            // ── Catat audit log ──────────────────────────────────────────────
+            AuditLog::record(
+                $auditAction,
+                $actorId,
+                (string) $userId,
+                'user',
+                [
+                    'assessment_id'    => (int) $assessmentId,
+                    'assessment_title' => $assessmentTitle,
+                    'periode'          => $periode,
+                    'kecamatan'        => $kecamatanNama,
+                    'action_mode'      => $action,
+                    'reason'           => $reason,
+                    'indicator_count'  => $entries->count(),
+                ],
+                ['ip' => $request->ip()]
+            );
+        });
+
+        $message = $action === 'reverify'
+            ? 'Hasil verifikasi dikembalikan ke antrian validator untuk diverifikasi ulang.'
+            : 'Hasil verifikasi dikembalikan ke kecamatan untuk diperbaiki.';
+
+        return redirect(
+            route('admin.assessment.results.detail', [$userId, $assessmentId]) . '?periode=' . urlencode($periode)
+        )->with('success', $message);
     }
 }

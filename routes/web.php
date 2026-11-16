@@ -108,6 +108,10 @@ Route::prefix('admin')
                 Route::get('/',                        [AdminAssessment::class, 'results'])->name('index');
                 Route::get('/{userId}',                [AdminAssessment::class, 'resultsByUser'])->name('user');
                 Route::get('/{userId}/{assessmentId}', [AdminAssessment::class, 'resultDetail'])->name('detail');
+
+                // Aksi admin: kembalikan hasil verifikasi yang sudah tervalidasi
+                // (verifikasi ulang / kembalikan ke kecamatan untuk diperbaiki)
+                Route::post('/{userId}/{assessmentId}/return', [AdminAssessment::class, 'returnSubmission'])->name('return');
             });
 
             // Wildcard {id} — harus setelah semua static routes

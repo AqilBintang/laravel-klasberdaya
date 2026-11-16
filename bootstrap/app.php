@@ -30,7 +30,21 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // JSON hanya untuk request yang eksplisit minta JSON atau path api/*
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // Pastikan exception message tidak bocor di production via JSON response
+        $exceptions->respond(function (\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\Response $response) {
+            if (app()->environment('production') && $response instanceof \Illuminate\Http\JsonResponse) {
+                $data = $response->getData(true);
+                // Hapus stack trace dan detail exception dari JSON response production
+                foreach (['exception', 'trace', 'file', 'line'] as $key) {
+                    unset($data[$key]);
+                }
+                $response->setData($data);
+            }
+            return $response;
+        });
     })->create();

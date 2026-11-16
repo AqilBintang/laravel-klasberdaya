@@ -49,6 +49,32 @@
                 {{ $total }} kecamatan
             </span>
 
+            {{-- Pencarian kabupaten/kota & kecamatan --}}
+            <form method="GET" action="{{ route('admin.assessment.results.index') }}" role="search"
+                  class="flex items-center gap-2">
+                <div class="relative">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
+                    </svg>
+                    <input type="search" name="search" value="{{ $search ?? '' }}"
+                           placeholder="Cari kabupaten/kota atau kecamatan…"
+                           aria-label="Cari kabupaten/kota atau kecamatan"
+                           class="rounded-lg border border-gray-300 bg-white pl-8 pr-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-sky-400 focus:ring-1 focus:ring-sky-400 outline-none w-64" />
+                </div>
+                {{-- Pertahankan filter tahun saat mencari --}}
+                <input type="hidden" name="tahun" value="{{ $selectedYear ?? '' }}" />
+                <button type="submit"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 transition-colors">
+                    Cari
+                </button>
+                @if (!empty($search))
+                    <a href="{{ route('admin.assessment.results.index') . ($selectedYear ? '?tahun=' . urlencode($selectedYear) : '') }}"
+                       class="text-xs text-gray-400 hover:text-gray-600 underline whitespace-nowrap">Reset cari</a>
+                @endif
+            </form>
+
             {{-- Filter tahun --}}
             @if (count($years) > 0)
                 <form method="GET" action="{{ route('admin.assessment.results.index') }}" class="flex items-center gap-2">
@@ -61,8 +87,10 @@
                             <option value="{{ $yr }}" {{ $selectedYear === $yr ? 'selected' : '' }}>{{ $yr }}</option>
                         @endforeach
                     </select>
+                    {{-- Pertahankan pencarian saat ganti tahun --}}
+                    <input type="hidden" name="search" value="{{ $search ?? '' }}" />
                     @if ($selectedYear)
-                        <a href="{{ route('admin.assessment.results.index') }}"
+                        <a href="{{ route('admin.assessment.results.index') . (!empty($search) ? '?search=' . urlencode($search) : '') }}"
                            class="text-xs text-gray-400 hover:text-gray-600 underline whitespace-nowrap">Reset</a>
                     @endif
                 </form>
@@ -275,14 +303,27 @@
                       d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
             </svg>
             <p class="text-gray-500 font-medium">
-                @if ($selectedYear)
+                @if (!empty($search))
+                    Tidak ada hasil untuk &ldquo;{{ $search }}&rdquo;
+                @elseif ($selectedYear)
                     Belum ada data untuk tahun {{ $selectedYear }}
                 @else
                     Belum ada data rekapitulasi
                 @endif
             </p>
-            <p class="mt-1 text-sm text-gray-400">Muncul setelah kecamatan submit dan validator memvalidasi</p>
-            @if ($selectedYear)
+            <p class="mt-1 text-sm text-gray-400">
+                @if (!empty($search))
+                    Coba kata kunci lain atau reset pencarian.
+                @else
+                    Muncul setelah kecamatan submit dan validator memvalidasi
+                @endif
+            </p>
+            @if (!empty($search))
+                <a href="{{ route('admin.assessment.results.index') . ($selectedYear ? '?tahun=' . urlencode($selectedYear) : '') }}"
+                   class="mt-4 text-sm text-sky-600 hover:text-sky-700 underline">
+                    Reset pencarian
+                </a>
+            @elseif ($selectedYear)
                 <a href="{{ route('admin.assessment.results.index') }}"
                    class="mt-4 text-sm text-sky-600 hover:text-sky-700 underline">
                     Lihat semua tahun
