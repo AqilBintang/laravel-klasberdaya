@@ -101,6 +101,45 @@
 
         {{-- ── Daftar Indikator dengan Form Validasi ───────────────────── --}}
         @isset($entries)
+
+        {{-- ── Panel Progress Validasi ────────────────────────────────── --}}
+        @isset($summary)
+        <div class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Progress Validasi</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 text-center">
+                    <p class="text-xl font-bold text-gray-900">{{ $summary['totalAll'] }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Total Indikator</p>
+                </div>
+                <div class="rounded-lg bg-green-50 border border-green-100 px-3 py-2.5 text-center">
+                    <p class="text-xl font-bold text-green-700">{{ $summary['totalValidated'] }}</p>
+                    <p class="text-xs text-green-600 mt-0.5">Tervalidasi</p>
+                </div>
+                <div class="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5 text-center">
+                    <p class="text-xl font-bold text-amber-700">{{ $summary['totalPending'] }}</p>
+                    <p class="text-xs text-amber-600 mt-0.5">Menunggu Validasi</p>
+                </div>
+                <div class="rounded-lg bg-red-50 border border-red-100 px-3 py-2.5 text-center">
+                    <p class="text-xl font-bold text-red-700">{{ $summary['totalRejected'] + $summary['totalDraft'] }}</p>
+                    <p class="text-xs text-red-600 mt-0.5">Ditolak / Perlu Revisi</p>
+                </div>
+            </div>
+            @php
+                $pct = $summary['totalAll'] > 0
+                    ? round(($summary['totalValidated'] / $summary['totalAll']) * 100)
+                    : 0;
+            @endphp
+            <div class="mt-3">
+                <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                    <span>Progress keseluruhan</span>
+                    <span class="font-semibold text-gray-700">{{ $pct }}%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div class="h-full bg-green-500 rounded-full transition-all" style="width: {{ $pct }}%"></div>
+                </div>
+            </div>
+        </div>
+        @endisset
         @if ($entries->isEmpty())
             {{-- Semua indikator sudah divalidasi --}}
             <div class="rounded-xl border-2 border-dashed border-gray-200 bg-white py-12 text-center">
@@ -465,6 +504,119 @@
         @endif
         @endisset
 
+        {{-- ── History: Indikator yang Sudah Diproses ─────────────────── --}}
+        @if (!empty($historyEntries) && $historyEntries->count() > 0)
+        @php
+            $historyByCategory = $historyEntries->groupBy(fn ($e) => $e->indicator?->category_id);
+        @endphp
+        <div class="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+            {{-- Toggle header --}}
+            <button type="button" id="btn-toggle-history"
+                    class="w-full flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-200
+                           hover:bg-gray-100 transition-colors text-left">
+                <div class="flex items-center gap-3">
+                    <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2
+                                 M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">
+                            Riwayat Validasi
+                            <span class="ml-1.5 inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                {{ $historyEntries->count() }} indikator
+                            </span>
+                        </p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Indikator yang sudah tervalidasi, ditolak, atau dikembalikan untuk perbaikan
+                        </p>
+                    </div>
+                </div>
+                <svg id="history-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200 rotate-180 shrink-0"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            {{-- Content --}}
+            <div id="history-content">
+                @foreach ($historyByCategory as $catId => $catHistEntries)
+                    @php $hCat = $catHistEntries->first()?->indicator?->category; @endphp
+                    <div class="border-b border-gray-100 last:border-b-0">
+                        {{-- Category sub-header --}}
+                        <div class="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100">
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-500 text-xs font-bold text-white shrink-0">
+                                {{ $hCat?->code ?? '—' }}
+                            </span>
+                            <p class="text-xs font-semibold text-slate-700">{{ $hCat?->name ?? 'Kategori' }}</p>
+                            <span class="text-xs text-slate-400">({{ $catHistEntries->count() }} indikator)</span>
+                        </div>
+
+                        <div class="divide-y divide-gray-50">
+                            @foreach ($catHistEntries as $hEntry)
+                                @php
+                                    $hVal = $hEntry->validations->first();
+                                    $hStatus = $hEntry->status;
+                                    [$hBg, $hBadgeCls, $hBadgeLabel] = match($hStatus) {
+                                        'VALIDATED' => ['bg-green-50/40', 'bg-green-100 text-green-700', 'Tervalidasi'],
+                                        'REJECTED'  => ['bg-red-50/40',   'bg-red-100 text-red-700',   'Ditolak'],
+                                        'DRAFT'     => ['bg-yellow-50/40','bg-yellow-100 text-yellow-700','Perlu Revisi'],
+                                        default     => ['',               'bg-gray-100 text-gray-600',  $hStatus],
+                                    };
+                                @endphp
+                                <div class="px-5 py-3.5 {{ $hBg }}">
+                                    <div class="flex items-start gap-3">
+                                        <span class="w-5 text-center text-xs font-bold text-slate-400 mt-0.5 shrink-0">
+                                            {{ $hEntry->indicator?->number }}
+                                        </span>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-start gap-2 flex-wrap">
+                                                <p class="text-sm text-slate-700 leading-snug flex-1">
+                                                    {{ $hEntry->indicator?->indicator }}
+                                                </p>
+                                                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {{ $hBadgeCls }} shrink-0">
+                                                    {{ $hBadgeLabel }}
+                                                </span>
+                                            </div>
+
+                                            {{-- Skor --}}
+                                            <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                                                <span>
+                                                    Skor kecamatan:
+                                                    <strong class="text-slate-700">{{ $hEntry->score }}</strong>
+                                                    / {{ $hEntry->indicator?->max_score ?? '?' }}
+                                                </span>
+                                                @if ($hVal?->validated_score !== null)
+                                                    <span>
+                                                        Skor validator:
+                                                        <strong class="text-sky-700">{{ $hVal->validated_score }}</strong>
+                                                    </span>
+                                                @endif
+                                                @if ($hVal?->validated_at)
+                                                    <span class="text-slate-400">
+                                                        {{ \Carbon\Carbon::parse($hVal->validated_at)->diffForHumans() }}
+                                                    </span>
+                                                @endif
+                                            </div>
+
+                                            {{-- Catatan validator --}}
+                                            @if ($hVal?->notes)
+                                                <div class="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                                                    <p class="text-xs text-amber-600 font-medium mb-0.5">💬 Catatan validator:</p>
+                                                    <p class="text-xs text-amber-700">{{ $hVal->notes }}</p>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
         {{-- ── Tombol Kembali ──────────────────────────────────────────── --}}
         <div class="flex justify-start">
             <a href="{{ route('validator.validasi.index') }}"
@@ -490,6 +642,26 @@
     </div>
 
     @push('scripts')
+    {{-- Toggle accordion history --}}
+    <script>
+    (function () {
+        var btn     = document.getElementById('btn-toggle-history');
+        var content = document.getElementById('history-content');
+        var chevron = document.getElementById('history-chevron');
+        if (!btn || !content) return;
+        btn.addEventListener('click', function () {
+            var isOpen = !content.classList.contains('hidden');
+            if (isOpen) {
+                content.classList.add('hidden');
+                chevron?.classList.remove('rotate-180');
+            } else {
+                content.classList.remove('hidden');
+                chevron?.classList.add('rotate-180');
+            }
+        });
+    })();
+    </script>
+
     {{-- ════════════════════════════════════════════════════════════════
          DRAWER RUBRIK — slide-in dari kanan, dua tab
          (Indikator Aktif | Semua Rubrik)

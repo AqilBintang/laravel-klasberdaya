@@ -245,7 +245,27 @@ class ValidationController extends Controller
             ->latest('reviewed_at')
             ->first(['notes', 'reviewed_at']);
 
-        return view('validator.validasi.show', compact('id', 'selfAssessment', 'entries', 'summary', 'rubric', 'rubricByIndicator', 'kabupatenApproval'));
+        // ── History: indikator yang sudah VALIDATED / REJECTED / DRAFT ────
+        // Ditampilkan sebagai panel read-only di bawah form validasi
+        // agar validator bisa melihat progress keseluruhan kecamatan ini.
+        $historyEntries = SelfAssessment::where('submitted_by_id', $selfAssessment->submitted_by_id)
+            ->where('periode', $selfAssessment->periode)
+            ->whereNotIn('status', ['SUBMITTED'])
+            ->whereHas('indicator', fn ($q) =>
+                $q->where('assessment_id', $assessmentId)
+            )
+            ->with([
+                'indicator:id,category_id,number,indicator,max_score',
+                'indicator.category:id,code,name,order',
+                'validations' => fn ($q) => $q->orderByDesc('validated_at')->limit(1),
+            ])
+            ->get()
+            ->sortBy([
+                fn ($a, $b) => ($a->indicator->category->order ?? 0) <=> ($b->indicator->category->order ?? 0),
+                fn ($a, $b) => ($a->indicator->number ?? 0) <=> ($b->indicator->number ?? 0),
+            ]);
+
+        return view('validator.validasi.show', compact('id', 'selfAssessment', 'entries', 'summary', 'rubric', 'rubricByIndicator', 'kabupatenApproval', 'historyEntries'));
     }
 
     /**
