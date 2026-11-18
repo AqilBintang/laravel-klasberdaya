@@ -203,14 +203,22 @@
                                                 / {{ $entry->indicator?->max_score ?? '?' }}
                                             </span>
                                             @if ($entry->supporting_doc && $entry->supporting_doc !== 'NO_DOC' && $entry->supporting_doc !== 'GDRIVE_PENDING')
-                                                <a href="{{ $entry->supporting_doc }}" target="_blank" rel="noopener noreferrer"
-                                                   class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                                    </svg>
-                                                    Dokumen pendukung
-                                                </a>
+                                                @php
+                                                    $kabDocLinks = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $entry->supporting_doc))));
+                                                @endphp
+                                                <div class="flex flex-col gap-0.5">
+                                                    @foreach ($kabDocLinks as $i => $kabLink)
+                                                        <a href="{{ $kabLink }}" target="_blank" rel="noopener noreferrer"
+                                                           class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                            </svg>
+                                                            Dokumen{{ count($kabDocLinks) > 1 ? ' ' . ($i + 1) : ' pendukung' }}
+                                                        </a>
+                                                        <span class="text-xs text-gray-400 break-all">{{ $kabLink }}</span>
+                                                    @endforeach
+                                                </div>
                                             @elseif ($entry->supporting_doc === 'NO_DOC')
                                                 <span class="text-slate-400 italic">Tanpa dokumen</span>
                                             @endif

@@ -126,13 +126,23 @@
                                                     <div>
                                                         <span class="block text-gray-400 font-medium mb-0.5">Bukti Pendukung</span>
                                                         @if ($docLabel === null)
-                                                            <a href="{{ $doc }}" target="_blank" rel="noopener noreferrer"
-                                                               class="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 hover:underline">
-                                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                                                </svg>
-                                                                Lihat Dokumen
-                                                            </a>
+                                                            @php
+                                                                $reviewDocLinks = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $doc))));
+                                                            @endphp
+                                                            <div class="space-y-1">
+                                                                @foreach ($reviewDocLinks as $i => $reviewLink)
+                                                                    <div>
+                                                                        <a href="{{ $reviewLink }}" target="_blank" rel="noopener noreferrer"
+                                                                           class="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 hover:underline">
+                                                                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                                            </svg>
+                                                                            Lihat Dokumen{{ count($reviewDocLinks) > 1 ? ' ' . ($i + 1) : '' }}
+                                                                        </a>
+                                                                        <p class="text-xs text-gray-400 mt-0.5 break-all">{{ $reviewLink }}</p>
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
                                                         @elseif ($doc === 'GDRIVE_PENDING')
                                                             <span class="text-amber-600 font-medium">{{ $docLabel }}</span>
                                                         @else

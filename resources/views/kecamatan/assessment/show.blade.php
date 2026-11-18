@@ -370,13 +370,23 @@
                                                 @if ($savedDoc === 'NO_DOC')
                                                     <p class="text-xs text-gray-500 italic">Belum terdapat kegiatan — link dokumen tidak diperlukan.</p>
                                                 @elseif ($savedDoc)
-                                                    <a href="{{ $savedDoc }}" target="_blank" rel="noopener noreferrer"
-                                                       class="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700">
-                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                                        </svg>
-                                                        Lihat dokumen tersimpan
-                                                    </a>
+                                                    @php
+                                                        $docLinks = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $savedDoc))));
+                                                    @endphp
+                                                    <div class="space-y-1">
+                                                        @foreach ($docLinks as $i => $link)
+                                                            <div class="flex items-center gap-1.5">
+                                                                <svg class="w-3 h-3 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                                </svg>
+                                                                <a href="{{ $link }}" target="_blank" rel="noopener noreferrer"
+                                                                   class="text-xs text-sky-600 hover:text-sky-700 hover:underline truncate max-w-xs">
+                                                                    Dokumen {{ count($docLinks) > 1 ? ($i + 1) : '' }}
+                                                                    <span class="text-gray-400 ml-1">{{ $link }}</span>
+                                                                </a>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
                                                 @else
                                                     <p class="text-xs text-gray-400 italic">Tidak ada dokumen.</p>
                                                 @endif
@@ -417,16 +427,16 @@
                                                     </div>
 
                                                     {{-- Input URL Google Drive (muncul jika pilih "Ada Dokumen") --}}
+                                                    {{-- Mendukung lebih dari satu URL: satu URL per baris --}}
                                                     <div id="doc_field_{{ $indicator->id }}"
                                                          class="{{ $docChoice === 'gdrive' ? 'mt-2' : 'hidden' }}">
-                                                        <input type="url"
-                                                               name="entries[{{ $indicator->id }}][supporting_doc]"
+                                                        <textarea name="entries[{{ $indicator->id }}][supporting_doc]"
                                                                id="doc_url_{{ $indicator->id }}"
-                                                               value="{{ ($docChoice === 'gdrive' && $savedDoc !== 'GDRIVE_PENDING') ? $savedDoc : '' }}"
-                                                               placeholder="https://drive.google.com/…"
-                                                               maxlength="500"
+                                                               rows="3"
+                                                               placeholder="https://drive.google.com/…&#10;Jika lebih dari satu link, tulis satu link per baris"
                                                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
-                                                                      focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                                                      focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 resize-none">{{ ($docChoice === 'gdrive' && $savedDoc !== 'GDRIVE_PENDING') ? $savedDoc : '' }}</textarea>
+                                                        <p class="mt-1 text-xs text-gray-400">Satu link per baris jika lebih dari satu dokumen.</p>
                                                         <p class="field-error hidden mt-1 text-xs text-red-600" id="err_doc_url_{{ $indicator->id }}" role="alert">Link Google Drive wajib diisi.</p>
                                                     </div>
 

@@ -229,22 +229,39 @@
                                     @php
                                         $doc = $entry->supporting_doc;
                                         $hasUrl = $doc && $doc !== 'NO_DOC' && $doc !== 'GDRIVE_PENDING';
+                                        $docLinks = $hasUrl ? array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $doc)))) : [];
                                     @endphp
-                                    @if ($hasUrl)
-                                        <div class="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 flex items-center gap-2">
-                                            <svg class="w-4 h-4 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-                                            </svg>
-                                            <span class="text-xs text-sky-700 font-medium">Bukti Pendukung:</span>
-                                            <a href="{{ $doc }}" target="_blank" rel="noopener noreferrer"
-                                               class="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800 hover:underline font-medium truncate max-w-xs">
-                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    @if ($hasUrl && count($docLinks) > 0)
+                                        <div class="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+                                            <div class="flex items-center gap-2 mb-1.5">
+                                                <svg class="w-4 h-4 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                                 </svg>
-                                                Buka Google Drive
-                                            </a>
+                                                <span class="text-xs text-sky-700 font-medium">
+                                                    Bukti Pendukung{{ count($docLinks) > 1 ? ' (' . count($docLinks) . ' dokumen)' : '' }}:
+                                                </span>
+                                            </div>
+                                            <div class="space-y-1 ml-6">
+                                                @foreach ($docLinks as $i => $link)
+                                                    <div class="flex items-start gap-1.5">
+                                                        @if (count($docLinks) > 1)
+                                                            <span class="text-xs text-sky-500 font-medium shrink-0 w-4">{{ $i + 1 }}.</span>
+                                                        @endif
+                                                        <div class="min-w-0 flex-1">
+                                                            <a href="{{ $link }}" target="_blank" rel="noopener noreferrer"
+                                                               class="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800 hover:underline font-medium">
+                                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                                </svg>
+                                                                Buka Google Drive
+                                                            </a>
+                                                            <p class="text-xs text-gray-400 mt-0.5 break-all">{{ $link }}</p>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
                                         </div>
                                     @elseif ($doc === 'NO_DOC')
                                         <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-400 italic">

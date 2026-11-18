@@ -177,14 +177,21 @@
                                     <td class="px-3 py-3.5 text-center">
                                         @php $doc = $entry?->supporting_doc; @endphp
                                         @if ($doc && $doc !== 'NO_DOC' && $doc !== 'GDRIVE_PENDING')
-                                            <a href="{{ $doc }}" target="_blank" rel="noopener noreferrer"
-                                               class="inline-flex items-center gap-1 text-xs text-sky-600 hover:underline whitespace-nowrap">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-                                                </svg>
-                                                Buka
-                                            </a>
+                                            @php
+                                                $adminDocLinks = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $doc))));
+                                            @endphp
+                                            <div class="flex flex-col items-center gap-1">
+                                                @foreach ($adminDocLinks as $i => $adminLink)
+                                                    <a href="{{ $adminLink }}" target="_blank" rel="noopener noreferrer"
+                                                       class="inline-flex items-center gap-1 text-xs text-sky-600 hover:underline whitespace-nowrap">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                                        </svg>
+                                                        Buka{{ count($adminDocLinks) > 1 ? ' ' . ($i + 1) : '' }}
+                                                    </a>
+                                                @endforeach
+                                            </div>
                                         @elseif ($doc === 'NO_DOC')
                                             <span class="text-gray-400 text-xs italic">Tanpa dok.</span>
                                         @else
