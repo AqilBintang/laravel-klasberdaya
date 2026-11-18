@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kecamatan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
+use App\Models\KabupatenApproval;
 use App\Models\SelfAssessment;
 use App\Models\UserAssessmentStatus;
 use Illuminate\Support\Facades\Auth;
@@ -131,6 +132,9 @@ class DashboardController extends Controller
             if ($aid === null) continue;
             if (isset($hasUpdateTmp[$aid])) continue;
 
+            // Jika entry sudah SUBMITTED kembali oleh kecamatan, validasi lama tidak relevan
+            if ($e->status === 'SUBMITTED') continue;
+
             $latestValidation = $e->validations->first();
             if (!$latestValidation) continue;
 
@@ -142,6 +146,13 @@ class DashboardController extends Controller
                 $validatorFeedbackSet[$aid] = true;
             }
         }
+
+        // Revisi dari kabupaten/kota — sumber ketiga NEEDS_REVISION
+        $kabupatenRevisionSet = KabupatenApproval::where('kecamatan_user_id', $userId)
+            ->where('status', 'NEEDS_REVISION')
+            ->whereIn('assessment_id', $assessmentIds->toArray())
+            ->pluck('notes', 'assessment_id')
+            ->toArray();
 
         // Bangun daftar assessment actionable
         $result = [];
@@ -173,7 +184,9 @@ class DashboardController extends Controller
             }
 
             // Derive status (sama dengan view index.blade.php)
-            $needsRevision = ($st && $st->status === 'NEEDS_REVISION') || isset($validatorFeedbackSet[$a->id]);
+            $needsRevision = ($st && $st->status === 'NEEDS_REVISION')
+                || isset($validatorFeedbackSet[$a->id])
+                || isset($kabupatenRevisionSet[$a->id]);
             $hasUpdate     = $st && ($st->status === 'HAS_UPDATE' || $st->latest_version > $st->current_version);
 
             if ($needsRevision) {
@@ -208,7 +221,9 @@ class DashboardController extends Controller
                 'BELUM_DIISI'    => 'Assessment belum diisi. Mulai isi sekarang.',
                 'NEEDS_REVISION' => isset($validatorFeedbackSet[$a->id])
                     ? 'Tim teknis meminta perbaikan. Buka assessment untuk mengisi ulang indikator yang ditandai.'
-                    : 'Ada perubahan dari admin. Silakan lengkapi indikator yang baru/diperbarui.',
+                    : (isset($kabupatenRevisionSet[$a->id])
+                        ? 'Kabupaten/Kota meminta perbaikan. Perbaiki isian dan kirim ulang.'
+                        : 'Perbaikan diminta. Buka assessment untuk mengisi ulang.'),
                 'HAS_UPDATE'     => 'Assessment diperbarui admin. Silakan lengkapi indikator baru yang tersedia.',
                 'PARTIAL'        => "Diisi sebagian ({$entryCount}/{$totalInd} indikator). Lanjutkan pengisian.",
                 'DRAFT'          => 'Draft tersimpan. Lanjutkan pengisian dan submit.',

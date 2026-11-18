@@ -7,6 +7,7 @@ use App\Models\Assessment;
 use App\Models\AssessmentIndicator;
 use App\Models\KabupatenApproval;
 use App\Models\SelfAssessment;
+use App\Models\User;
 use App\Models\UserAssessmentStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,15 +18,66 @@ class ApprovalController extends Controller
 {
     /**
      * GET /kabupaten/review
-     * Daftar kecamatan dalam wilayah kabupaten ini yang sudah submit assessment.
+     * Daftar kecamatan dalam wilayah kabupaten ini dengan history lengkap.
      *
-     * Hanya tampilkan kecamatan yang:
-     * 1. Sudah submit (ada SelfAssessment SUBMITTED / VALIDATED)
-     * 2. Belum diapprove kabupaten (PENDING) ATAU sudah diapprove (untuk ditampilkan history)
+     * Menampilkan:
+     * - Kecamatan yang sudah submit dan menunggu review (PENDING)
+     * - Kecamatan yang sudah disetujui (APPROVED)
+     * - Kecamatan yang diminta perbaikan (NEEDS_REVISION)
+     * - Kecamatan di wilayah ini yang belum pernah submit sama sekali
      */
     public function index(): View
     {
         $user = auth()->user();
+
+        // Closure wilayah — dipakai di beberapa query
+        $wilayahScope = function ($q) use ($user) {
+            if ($user->kabupaten_id) {
+                $q->where('kabupaten_id', $user->kabupaten_id);
+            } elseif ($user->kabupaten) {
+                $q->where('kabupaten', $user->kabupaten);
+            }
+        };
+
+        // ── Backfill otomatis ─────────────────────────────────────────────
+        // Jika ada kecamatan di wilayah ini yang punya SelfAssessment SUBMITTED
+        // tapi belum punya KabupatenApproval (data lama / race condition),
+        // buat record PENDING sekarang agar tidak terlewat di tampilan.
+        $kecamatanIdsInWilayah = User::where('role', 'USER')
+            ->where('is_active', true)
+            ->when($user->kabupaten_id, fn ($q) => $q->where('kabupaten_id', $user->kabupaten_id))
+            ->when(!$user->kabupaten_id && $user->kabupaten, fn ($q) => $q->where('kabupaten', $user->kabupaten))
+            ->pluck('id');
+
+        if ($kecamatanIdsInWilayah->isNotEmpty()) {
+            $orphanGroups = SelfAssessment::whereIn('submitted_by_id', $kecamatanIdsInWilayah)
+                ->where('status', 'SUBMITTED')
+                ->with('indicator.category:id,assessment_id')
+                ->get()
+                ->map(fn ($e) => [
+                    'kecamatan_user_id' => $e->submitted_by_id,
+                    'assessment_id'     => $e->indicator->category->assessment_id,
+                    'periode'           => $e->periode,
+                ])
+                ->unique(fn ($r) => "{$r['kecamatan_user_id']}_{$r['assessment_id']}_{$r['periode']}")
+                ->values();
+
+            foreach ($orphanGroups as $g) {
+                KabupatenApproval::firstOrCreate(
+                    [
+                        'kecamatan_user_id' => $g['kecamatan_user_id'],
+                        'assessment_id'     => $g['assessment_id'],
+                        'periode'           => $g['periode'],
+                    ],
+                    [
+                        'status'            => 'PENDING',
+                        'kabupaten_user_id' => null,
+                        'notes'             => null,
+                        'reviewed_at'       => null,
+                    ]
+                );
+            }
+        }
 
         // Ambil semua approval untuk kecamatan di wilayah kabupaten ini
         // (termasuk PENDING, APPROVED, NEEDS_REVISION)
@@ -35,18 +87,32 @@ class ApprovalController extends Controller
             'kecamatanUser.kabupatenWilayah:id,nama',
             'assessment:id,title,periode',
         ])
-            ->whereHas('kecamatanUser', function ($q) use ($user) {
-                if ($user->kabupaten_id) {
-                    $q->where('kabupaten_id', $user->kabupaten_id);
-                } elseif ($user->kabupaten) {
-                    $q->where('kabupaten', $user->kabupaten);
-                }
-            })
+            ->whereHas('kecamatanUser', $wilayahScope)
             ->orderByRaw("FIELD(status, 'PENDING', 'NEEDS_REVISION', 'APPROVED')")
-            ->orderBy('created_at', 'asc')
+            ->orderBy('updated_at', 'desc')
             ->get();
 
-        return view('kabupaten.review.index', compact('approvals'));
+        // Semua user kecamatan (role USER) di wilayah kabupaten ini
+        $allKecamatanUsers = User::where('role', 'USER')
+            ->where('is_active', true)
+            ->when($user->kabupaten_id, fn ($q) => $q->where('kabupaten_id', $user->kabupaten_id))
+            ->when(!$user->kabupaten_id && $user->kabupaten, fn ($q) => $q->where('kabupaten', $user->kabupaten))
+            ->with(['kecamatanWilayah:id,nama', 'kabupatenWilayah:id,nama'])
+            ->get(['id', 'name', 'kecamatan', 'kabupaten', 'kecamatan_id', 'kabupaten_id']);
+
+        // User kecamatan yang sudah pernah submit (ada di tabel kabupaten_approvals)
+        $submittedUserIds = $approvals->pluck('kecamatan_user_id')->unique();
+
+        // Kecamatan yang belum pernah submit sama sekali
+        $kecamatanBelumSubmit = $allKecamatanUsers->filter(
+            fn ($u) => !$submittedUserIds->contains($u->id)
+        )->values();
+
+        return view('kabupaten.review.index', compact(
+            'approvals',
+            'allKecamatanUsers',
+            'kecamatanBelumSubmit',
+        ));
     }
 
     /**

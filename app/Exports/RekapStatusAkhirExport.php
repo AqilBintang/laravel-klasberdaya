@@ -166,10 +166,16 @@ class RekapStatusAkhirExport implements Export, WithMultipleSheets
         return array_map(function ($group) {
             $catScores = array_values($group['catMap']);
             usort($catScores, fn ($a, $b) => $a['order'] <=> $b['order']);
-            $statusAkhir = Scoring::getStatusAkhir($group['totalScore'], $group['maxPossibleTotal'], array_map(
+
+            $catScoresMapped = array_map(
                 fn ($c) => ['code' => $c['code'], 'score' => $c['score'], 'maxScore' => $c['maxScore']],
                 $catScores
-            ));
+            );
+
+            $weighted    = Scoring::calculateWeightedScore($catScoresMapped);
+            $wScore      = round($weighted['weightedScore'], 2);
+            $wScoreMax   = round($weighted['maxWeightedScore'], 2);
+            $statusAkhir = Scoring::getKlasifikasiFromWeighted($wScore);
 
             return [
                 'assessmentTitle'  => $group['assessmentTitle'],
@@ -179,6 +185,8 @@ class RekapStatusAkhirExport implements Export, WithMultipleSheets
                 'categoryScores'   => $catScores,
                 'totalScore'       => $group['totalScore'],
                 'maxPossibleTotal' => $group['maxPossibleTotal'],
+                'weightedScore'    => $wScore,
+                'maxWeightedScore' => $wScoreMax,
                 'statusAkhir'      => $statusAkhir,
             ];
         }, array_values($latestValidated));
@@ -226,6 +234,8 @@ class RekapStatusAkhirSheetExport implements FromArray, WithEvents, WithTitle
         }
         $header[] = 'Total Skor';
         $header[] = 'Skor Maksimum';
+        $header[] = 'Skor Konversi';
+        $header[] = 'Skor Konversi Maks';
         $header[] = 'Klasifikasi Akhir';
 
         $data = [$header];
@@ -247,7 +257,9 @@ class RekapStatusAkhirSheetExport implements FromArray, WithEvents, WithTitle
 
             $line[] = $row['totalScore'];
             $line[] = $row['maxPossibleTotal'];
-            $line[] = $row['statusAkhir'] ?? '-';
+            $line[] = $row['weightedScore']    ?? '-';
+            $line[] = $row['maxWeightedScore'] ?? '-';
+            $line[] = $row['statusAkhir']      ?? '-';
 
             $data[] = $line;
         }
@@ -273,8 +285,8 @@ class RekapStatusAkhirSheetExport implements FromArray, WithEvents, WithTitle
                     $sheet->getColumnDimension($col)->setWidth(14);
                     $colIdx++;
                 }
-                // Total Skor, Skor Maks, Klasifikasi
-                foreach ([12, 14, 20] as $w) {
+                // Total Skor, Skor Maks, Skor Konversi, Skor Konversi Maks, Klasifikasi
+                foreach ([12, 14, 16, 18, 20] as $w) {
                     $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
                     $sheet->getColumnDimension($col)->setWidth($w);
                     $colIdx++;

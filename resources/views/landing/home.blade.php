@@ -168,7 +168,7 @@
                     $firstYear    = !empty($stats['years']) ? $stats['years'][0] : null;
                     $yearCount    = !empty($stats['years']) ? count($stats['years']) : 0;
                     $latestChartRow = !empty($stats['chartData']) ? end($stats['chartData']) : null;
-                    $majuCount    = $latestChartRow['maju'] ?? 0;
+                    $majuCount    = $latestChartRow['unggul'] ?? 0;
                 @endphp
                 <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-white/70 px-3 py-4 sm:px-6 sm:py-5 text-center shadow-sm backdrop-blur-sm">
                     <div class="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-sky-100 text-sky-600">
@@ -183,7 +183,7 @@
                     @endif
                 </div>
 
-                {{-- Kecamatan Maju --}}
+                {{-- Kecamatan Unggul --}}
                 <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-white/70 px-3 py-4 sm:px-6 sm:py-5 text-center shadow-sm backdrop-blur-sm">
                     <div class="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-sky-100 text-sky-600">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -193,7 +193,7 @@
                     <p class="text-2xl sm:text-3xl font-bold text-gray-900 tabular-nums stat-count" data-target="{{ $majuCount }}">
                         {{ number_format($majuCount, 0, ',', '.') }}
                     </p>
-                    <p class="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Kecamatan Maju</p>
+                    <p class="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Kecamatan Unggul</p>
                     @if($latestYear !== '-')
                         <p class="text-[11px] sm:text-xs text-gray-500 leading-tight">Per tahun {{ $latestYear }}</p>
                     @endif

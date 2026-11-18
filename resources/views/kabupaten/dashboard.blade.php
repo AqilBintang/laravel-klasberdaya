@@ -16,49 +16,83 @@
         </div>
 
         {{-- ── Stats ──────────────────────────────────────────────────── --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
             {{-- Menunggu Review --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 flex items-center gap-4 shadow-sm">
-                <div class="rounded-lg bg-amber-50 p-3 shrink-0">
-                    <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 flex items-center gap-4 shadow-sm">
+                <div class="rounded-lg bg-amber-100 p-3 shrink-0">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
                 <div>
-                    <p class="text-2xl font-bold text-gray-900">{{ $totalMenunggu }}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Menunggu Review</p>
+                    <p class="text-2xl font-bold text-amber-700">{{ $totalMenunggu }}</p>
+                    <p class="text-xs text-amber-600 mt-0.5 font-medium">Menunggu Review</p>
                 </div>
             </div>
 
             {{-- Sudah Disetujui --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 flex items-center gap-4 shadow-sm">
-                <div class="rounded-lg bg-green-50 p-3 shrink-0">
-                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <div class="rounded-xl border border-green-200 bg-green-50 p-5 flex items-center gap-4 shadow-sm">
+                <div class="rounded-lg bg-green-100 p-3 shrink-0">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
                 <div>
-                    <p class="text-2xl font-bold text-gray-900">{{ $totalDisetujui }}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Disetujui</p>
+                    <p class="text-2xl font-bold text-green-700">{{ $totalDisetujui }}</p>
+                    <p class="text-xs text-green-600 mt-0.5 font-medium">Disetujui</p>
                 </div>
             </div>
 
             {{-- Perlu Perbaikan --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 flex items-center gap-4 shadow-sm">
-                <div class="rounded-lg bg-red-50 p-3 shrink-0">
-                    <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <div class="rounded-xl border border-red-200 bg-red-50 p-5 flex items-center gap-4 shadow-sm">
+                <div class="rounded-lg bg-red-100 p-3 shrink-0">
+                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
                     </svg>
                 </div>
                 <div>
-                    <p class="text-2xl font-bold text-gray-900">{{ $totalRevisi }}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Perlu Perbaikan</p>
+                    <p class="text-2xl font-bold text-red-600">{{ $totalRevisi }}</p>
+                    <p class="text-xs text-red-500 mt-0.5 font-medium">Perlu Perbaikan</p>
+                </div>
+            </div>
+
+            {{-- Belum Submit --}}
+            <div class="rounded-xl border border-gray-200 bg-white p-5 flex items-center gap-4 shadow-sm">
+                <div class="rounded-lg bg-gray-100 p-3 shrink-0">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 8v4m0 4h.01M9 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3a2 2 0 002 2h2a2 2 0 002-2M9 3a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-gray-700">{{ $totalBelumSubmit }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Belum Submit</p>
+                    <p class="text-xs text-gray-400">dari {{ $totalKecamatan }} kecamatan</p>
                 </div>
             </div>
 
         </div>
+
+        {{-- ── Progress Bar ────────────────────────────────────────────── --}}
+        @if ($totalKecamatan > 0)
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-gray-700">Progress Submission Kecamatan</p>
+                <p class="text-sm font-bold text-gray-900">{{ $totalSudahSubmit }} / {{ $totalKecamatan }}</p>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                <div class="h-2.5 rounded-full transition-all duration-500"
+                     style="width: {{ $totalKecamatan > 0 ? round(($totalSudahSubmit / $totalKecamatan) * 100) : 0 }}%;
+                            background: linear-gradient(to right, #4f46e5, #7c3aed);">
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5">
+                {{ $totalKecamatan > 0 ? round(($totalSudahSubmit / $totalKecamatan) * 100) : 0 }}% kecamatan sudah mengirimkan assessment
+            </p>
+        </div>
+        @endif
 
         {{-- ── CTA ─────────────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -80,8 +114,14 @@
                         <p class="mt-1.5 text-xs font-medium text-amber-600">
                             {{ $totalMenunggu }} kecamatan menunggu review Anda
                         </p>
+                    @elseif ($totalBelumSubmit > 0)
+                        <p class="mt-1.5 text-xs text-gray-400">
+                            {{ $totalBelumSubmit }} dari {{ $totalKecamatan }} kecamatan belum mengirimkan assessment
+                        </p>
                     @else
-                        <p class="mt-1.5 text-xs text-gray-400">Tidak ada assessment yang menunggu review</p>
+                        <p class="mt-1.5 text-xs text-green-600 font-medium">
+                            Semua kecamatan sudah direview ✓
+                        </p>
                     @endif
                 </div>
             </div>

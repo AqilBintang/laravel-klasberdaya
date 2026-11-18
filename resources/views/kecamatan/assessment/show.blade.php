@@ -133,18 +133,49 @@
                     <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                     </svg>
-                    <div class="text-sm">
-                        <p class="font-medium text-red-800">Assessment Diperbarui — Perlu Diisi Ulang</p>
+                    <div class="text-sm flex-1">
+                        <p class="font-medium text-red-800">Perlu Perbaikan — Diminta oleh Kabupaten/Kota</p>
                         <p class="text-red-700 mt-0.5">
-                            Admin telah memperbarui assessment dengan indikator yang berubah atau ditambah.
-                            Silakan lengkapi indikator yang ditandai merah/biru di bawah, lalu kirim ulang assessment Anda.
+                            Kabupaten/Kota telah meminta perbaikan atas assessment ini.
+                            Silakan perbaiki jawaban Anda dan kirim ulang assessment.
                             @if (!empty($newIndicatorIds))
                                 Ada <strong>{{ count($newIndicatorIds) }}</strong> indikator yang perlu perhatian.
                             @endif
                         </p>
+                        @if (!empty($kabupatenApproval?->notes))
+                            <div class="mt-3 rounded-lg border border-red-300 bg-white px-3 py-2.5">
+                                <p class="text-xs font-semibold text-red-700 mb-1 flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-1-3z"/>
+                                    </svg>
+                                    Catatan dari Kabupaten/Kota:
+                                </p>
+                                <p class="text-sm text-red-800 whitespace-pre-wrap leading-relaxed">{{ $kabupatenApproval->notes }}</p>
+                                @if ($kabupatenApproval->reviewed_at)
+                                    <p class="text-xs text-red-500 mt-1.5">{{ \Carbon\Carbon::parse($kabupatenApproval->reviewed_at)->diffForHumans() }}</p>
+                                @endif
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
+        @endif
+
+        {{-- ── Pesan error saat submit gagal (ada indikator belum lengkap) ── --}}
+        @if (session('error') && session('missing_indicator_ids'))
+        <div class="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 flex items-start gap-3" id="banner-incomplete">
+            <svg class="w-5 h-5 text-orange-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <div class="text-sm flex-1">
+                <p class="font-semibold text-orange-800">Formulir belum bisa dikirim</p>
+                <p class="text-orange-700 mt-0.5">{{ session('error') }} Indikator yang perlu dilengkapi ditandai <strong>⚠ Belum Lengkap</strong> di bawah.</p>
+                <button type="button" id="btn-scroll-first-missing"
+                        class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-orange-700 underline hover:text-orange-900">
+                    Langsung ke indikator pertama yang belum lengkap ↓
+                </button>
+            </div>
+        </div>
         @endif
 
         {{-- ── Form ── --}}
@@ -180,9 +211,11 @@
                                     $isValidated = $entry && $entry->status === 'VALIDATED' && !$isRevision && !$isRejected;
                                     $isSubmitted = $entry && $entry->status === 'SUBMITTED' && !$isRevision && !$isRejected;
                                     $isLocked    = $isValidated || $isSubmitted;
+                                    $isMissing   = in_array($indicator->id, session('missing_indicator_ids', []));
                                     $rowBg      = match(true) {
                                         $isRejected => 'bg-red-50',
                                         $isRevision => 'bg-yellow-50',
+                                        $isMissing  => 'bg-orange-50 ring-2 ring-orange-300 ring-inset',
                                         $isNew      => 'bg-blue-50',
                                         default     => '',
                                     };
@@ -213,6 +246,9 @@
                                                     @endif
                                                     @if ($isRejected)
                                                         <span class="rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-medium">Ditolak</span>
+                                                    @endif
+                                                    @if ($isMissing && !$isLocked)
+                                                        <span class="rounded-full bg-orange-100 text-orange-700 border border-orange-300 px-2 py-0.5 text-xs font-semibold">⚠ Belum Lengkap</span>
                                                     @endif
                                                     @if ($isValidated)
                                                         <span class="rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">Tervalidasi</span>
@@ -448,16 +484,17 @@
                         </button>
                         <span id="draft-status" class="text-xs font-medium hidden"></span>
                     </div>
-                    <a href="{{ route('kecamatan.assessment.review', $assessment->id) }}"
-                       id="btn-submit-preview"
-                       class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
-                              bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white
-                              hover:bg-sky-700 transition-colors">
+                    {{-- Tombol ini mencegah navigasi sebelum draft tersimpan --}}
+                    <button type="button" id="btn-submit-preview"
+                            data-href="{{ route('kecamatan.assessment.review', $assessment->id) }}"
+                            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg
+                                   bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white
+                                   hover:bg-sky-700 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                         Review &amp; Submit
-                    </a>
+                    </button>
                 </div>
                 @endif
 
@@ -701,6 +738,35 @@
             });
         }
 
+        // ── Tombol "Review & Submit" — pastikan draft tersimpan sebelum navigasi ──
+        var btnReview = document.getElementById('btn-submit-preview');
+        if (btnReview) {
+            var reviewHref = btnReview.dataset.href;
+            btnReview.addEventListener('click', async function () {
+                if (btnReview.disabled) return;
+                btnReview.disabled = true;
+                // Jika ada perubahan pending atau timer masih jalan, simpan dulu
+                if (draftPending || draftTimer) {
+                    clearTimeout(draftTimer);
+                    draftPending = false;
+                    setDraftStatus('saving');
+                    try {
+                        var form = document.getElementById('form-assessment');
+                        if (form) {
+                            await fetch(DRAFT_URL, {
+                                method:  'POST',
+                                headers: { 'X-CSRF-TOKEN': CSRF },
+                                body:    new FormData(form),
+                            });
+                        }
+                    } catch (e) {
+                        // Lanjut tetap navigate meskipun save gagal
+                    }
+                }
+                window.location.href = reviewHref;
+            });
+        }
+
         // ── Radio doc cards ─────────────────────────────────────────
         document.querySelectorAll('.doc-choice-radio').forEach(function (radio) {
             radio.addEventListener('change', function () {
@@ -870,6 +936,34 @@
                     openDrawer();
                 });
             });
+        })();
+        @endif
+
+        // ── Scroll ke indikator belum lengkap (dari session flash) ──────
+        @if (session('missing_indicator_ids'))
+        (function () {
+            var missingIds = @json(session('missing_indicator_ids'));
+            if (!missingIds || !missingIds.length) return;
+
+            // Scroll otomatis ke indikator pertama yang bermasalah
+            function scrollToFirstMissing() {
+                for (var i = 0; i < missingIds.length; i++) {
+                    var el = document.querySelector('[data-indicator-id="' + missingIds[i] + '"]');
+                    if (el) {
+                        setTimeout(function () {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                        break;
+                    }
+                }
+            }
+            scrollToFirstMissing();
+
+            // Tombol "Langsung ke indikator pertama"
+            var btnScroll = document.getElementById('btn-scroll-first-missing');
+            if (btnScroll) {
+                btnScroll.addEventListener('click', scrollToFirstMissing);
+            }
         })();
         @endif
     })();

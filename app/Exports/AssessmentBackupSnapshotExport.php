@@ -15,23 +15,24 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 /**
  * Export backup data lengkap (snapshot) satu kecamatan untuk satu periode.
  *
- * Format identik dengan CSV backup-balapulang-2026-2026-10-19.csv:
+ * Format:
  *   Baris 1 : Judul Assessment | <title>
  *   Baris 2 : Periode | <periode> | Tahun | <tahun>
  *   Baris 3 : Kabupaten/Kota | <kab> | Kecamatan | <kec>
- *   Baris 4 : Status Akhir | <status> | Total Skor | <total>/<maks>
+ *   Baris 4 : Status Akhir | <status> | Skor Akhir | <wScore>
  *   Baris 5 : kosong
  *   Per kategori:
  *     - Kategori <kode> | <nama>
  *     - Total Skor Kategori | <skor>/<maks> | Klasifikasi | <klas>
  *     - kosong
- *     - No | Indikator | Deskripsi | Skor | Skor Validasi | Skor Efektif | Dokumen Pendukung
+ *     - No | Indikator | Deskripsi | Skor Validator | Dokumen Pendukung
  *     - <baris indikator...>
  *     - kosong
  *   Terakhir:
  *     - Ringkasan
- *     - Total Skor Akhir | <total>/<maks> | Klasifikasi Akhir | <status>
+ *     - Skor Akhir | <wScore> | Klasifikasi Akhir | <status>
  *
+ * Kolom skor hanya menampilkan skor efektif (hasil validator).
  * Satu sheet per assessment dalam backup.
  */
 class AssessmentBackupSnapshotExport implements Export, WithMultipleSheets
@@ -117,25 +118,25 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
         $total = $s['totalScore']       ?? 0;
         $maks  = $s['maxPossibleTotal'] ?? 0;
 
-        // Hitung weighted score & konversi ke persen
+        // Hitung weighted score dari skor efektif (hasil validator) per kategori
         $categories = $s['categories'] ?? [];
         usort($categories, fn ($a, $b) => ($a['order'] ?? 0) <=> ($b['order'] ?? 0));
 
         $categoryScoresForWeighted = array_map(fn ($c) => [
             'code'     => $c['code'],
-            'score'    => $c['totalScore'] ?? 0,
+            'score'    => $c['totalScore'] ?? 0,   // totalScore sudah berdasarkan effectiveScore (validator)
             'maxScore' => $c['maxScore']   ?? 0,
         ], $categories);
 
-        $weighted    = \App\Helpers\Scoring::calculateWeightedScore($categoryScoresForWeighted);
-        $wScore      = round($weighted['weightedScore'], 2);
+        $weighted = \App\Helpers\Scoring::calculateWeightedScore($categoryScoresForWeighted);
+        $wScore   = round($weighted['weightedScore'], 2);
 
         // ── Header info (baris 1–4) ──────────────────────────────
-        $rows[] = ['Judul Assessment', $s['assessmentTitle'] ?? '', '', '', '', ''];
-        $rows[] = ['Periode', $s['periode'] ?? '', 'Tahun', $s['tahun'] ?? '', '', ''];
-        $rows[] = ['Kabupaten/Kota', $s['kabupaten'] ?? '', 'Kecamatan', $s['kecamatan'] ?? '', '', ''];
-        $rows[] = ['Status Akhir', $s['statusAkhir'] ?? '', 'Skor Akhir', $wScore, '', ''];
-        $rows[] = ['', '', '', '', '', ''];
+        $rows[] = ['Judul Assessment', $s['assessmentTitle'] ?? '', '', '', ''];
+        $rows[] = ['Periode', $s['periode'] ?? '', 'Tahun', $s['tahun'] ?? '', ''];
+        $rows[] = ['Kabupaten/Kota', $s['kabupaten'] ?? '', 'Kecamatan', $s['kecamatan'] ?? '', ''];
+        $rows[] = ['Status Akhir', $s['statusAkhir'] ?? '', 'Skor Akhir', $wScore, ''];
+        $rows[] = ['', '', '', '', ''];
 
         // ── Per kategori ─────────────────────────────────────────
         foreach ($categories as $cat) {
@@ -144,12 +145,12 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
             $klas     = $cat['klasifikasi'] ?? '';
 
             // Header kategori
-            $rows[] = ["Kategori {$cat['code']}", $cat['name'] ?? '', '', '', '', ''];
-            $rows[] = ['Total Skor Kategori', "{$catTotal}/{$catMaks}", 'Klasifikasi', $klas, '', ''];
-            $rows[] = ['', '', '', '', '', ''];
+            $rows[] = ["Kategori {$cat['code']}", $cat['name'] ?? '', '', '', ''];
+            $rows[] = ['Total Skor Kategori', "{$catTotal}/{$catMaks}", 'Klasifikasi', $klas, ''];
+            $rows[] = ['', '', '', '', ''];
 
-            // Header kolom indikator
-            $rows[] = ['No', 'Indikator', 'Deskripsi', 'Skor', 'Skor Validasi', 'Dokumen Pendukung'];
+            // Header kolom indikator — skor hanya dari validator (effectiveScore)
+            $rows[] = ['No', 'Indikator', 'Deskripsi', 'Skor Validator', 'Dokumen Pendukung'];
 
             // Baris data indikator
             foreach ($cat['indicators'] ?? [] as $ind) {
@@ -157,18 +158,17 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
                     $ind['number']         ?? '',
                     $ind['indicator']      ?? '',
                     $ind['description']    ?? '',
-                    $ind['effectiveScore'] ?? 0,
-                    $ind['validatedScore'] ?? '',
+                    $ind['effectiveScore'] ?? 0,   // skor efektif = validated_score jika ada, fallback raw
                     $ind['supportingDoc']  ?? '',
                 ];
             }
 
-            $rows[] = ['', '', '', '', '', ''];
+            $rows[] = ['', '', '', '', ''];
         }
 
         // ── Ringkasan ─────────────────────────────────────────────
-        $rows[] = ['Ringkasan', '', '', '', '', ''];
-        $rows[] = ['Skor Akhir', $wScore, 'Klasifikasi Akhir', $s['statusAkhir'] ?? '', '', ''];
+        $rows[] = ['Ringkasan', '', '', '', ''];
+        $rows[] = ['Skor Akhir', $wScore, 'Klasifikasi Akhir', $s['statusAkhir'] ?? '', ''];
 
         return $rows;
     }
@@ -179,13 +179,12 @@ class AssessmentBackupSnapshotSheetExport implements FromArray, WithEvents, With
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                // Lebar kolom (A=label/no, B=konten/indikator, C=deskripsi, D=skor efektif, E=skor validasi, F=dokumen)
+                // Lebar kolom (A=label/no, B=indikator, C=deskripsi, D=skor validator, E=dokumen)
                 $sheet->getColumnDimension('A')->setWidth(22);
                 $sheet->getColumnDimension('B')->setWidth(55);
                 $sheet->getColumnDimension('C')->setWidth(55);
-                $sheet->getColumnDimension('D')->setWidth(8);
-                $sheet->getColumnDimension('E')->setWidth(14);
-                $sheet->getColumnDimension('F')->setWidth(45);
+                $sheet->getColumnDimension('D')->setWidth(14);
+                $sheet->getColumnDimension('E')->setWidth(45);
 
                 // Style 4 baris info header
                 $sheet->getStyle('A1:D4')->applyFromArray([

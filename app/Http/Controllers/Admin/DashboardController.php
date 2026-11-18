@@ -20,7 +20,10 @@ class DashboardController extends Controller
 
         $totalAssessmentPublished = Assessment::where('status', 'PUBLISHED')->count();
 
-        $totalMenunggu = SelfAssessment::where('status', 'SUBMITTED')->count();
+        // Jumlah kecamatan (user unik) yang punya minimal 1 indikator SUBMITTED
+        $totalMenunggu = SelfAssessment::where('status', 'SUBMITTED')
+            ->distinct('submitted_by_id')
+            ->count('submitted_by_id');
 
         // Kecamatan yang sudah punya minimal 1 self-assessment VALIDATED
         // dan tidak punya self-assessment yang statusnya bukan VALIDATED

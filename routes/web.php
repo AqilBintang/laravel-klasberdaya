@@ -251,10 +251,11 @@ Route::prefix('validator')
 
         // Validasi self-assessment kecamatan
         Route::prefix('validasi')->name('validasi.')->group(function () {
-            Route::get('/',          [ValidatorValidation::class, 'index'])->name('index');
-            Route::get('/{id}',      [ValidatorValidation::class, 'show'])->name('show');
-            Route::post('/{id}',     [ValidatorValidation::class, 'store'])->name('store');
-            Route::put('/{id}',      [ValidatorValidation::class, 'update'])->name('update');
+            Route::get('/',              [ValidatorValidation::class, 'index'])->name('index');
+            Route::get('/{id}',          [ValidatorValidation::class, 'show'])->name('show');
+            Route::post('/{id}',         [ValidatorValidation::class, 'store'])->name('store');
+            Route::put('/{id}',          [ValidatorValidation::class, 'update'])->name('update');
+            Route::post('/{id}/bulk',    [ValidatorValidation::class, 'storeBulk'])->name('storeBulk');
         });
 
         // ── Panduan Rubrik (read-only) ────────────────────────────────

@@ -124,14 +124,24 @@
                             @if ($needsRevision)
                                 @php
                                     $hasValidatorFeedback = in_array($assessment->id, $validatorFeedbackSet ?? []);
+                                    $kabNote = $kabupatenApprovals[$assessment->id]->notes ?? null;
                                 @endphp
-                                <p class="mt-2 text-xs text-red-600 font-medium">
-                                    @if ($hasValidatorFeedback)
+                                @if ($kabNote && !$hasValidatorFeedback)
+                                    <p class="mt-2 text-xs text-red-600 font-medium">
+                                        Kabupaten/Kota meminta perbaikan. Buka assessment untuk melihat catatan lengkap.
+                                    </p>
+                                    <p class="mt-1 text-xs text-red-500 italic line-clamp-2">
+                                        "{{ $kabNote }}"
+                                    </p>
+                                @elseif ($hasValidatorFeedback)
+                                    <p class="mt-2 text-xs text-red-600 font-medium">
                                         Tim teknis meminta perbaikan. Buka assessment untuk mengisi ulang indikator yang ditandai.
-                                    @else
-                                        Ada perubahan dari admin. Silakan lengkapi indikator yang baru/diperbarui.
-                                    @endif
-                                </p>
+                                    </p>
+                                @else
+                                    <p class="mt-2 text-xs text-red-600 font-medium">
+                                        Perlu perbaikan. Silakan lengkapi indikator yang baru/diperbarui.
+                                    </p>
+                                @endif
                             @elseif ($hasUpdate)
                                 <p class="mt-2 text-xs text-blue-600 font-medium">
                                     Assessment diperbarui admin. Silakan lengkapi indikator baru yang tersedia.

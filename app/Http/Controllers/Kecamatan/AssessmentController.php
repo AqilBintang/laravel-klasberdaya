@@ -120,6 +120,15 @@ class AssessmentController extends Controller
             }
         }
 
+        // ── kabupatenNotesByAssessment ─────────────────────────────────────────
+        // Ambil catatan penolakan kabupaten (NEEDS_REVISION) per assessment
+        // agar bisa ditampilkan di kartu assessment pada halaman index.
+        $kabupatenApprovals = KabupatenApproval::where('kecamatan_user_id', $userId)
+            ->where('status', 'NEEDS_REVISION')
+            ->whereIn('assessment_id', $assessmentIds->toArray())
+            ->get(['assessment_id', 'notes', 'reviewed_at'])
+            ->keyBy('assessment_id');
+
         $validatorFeedbackSet = [];
         foreach ($entries as $e) {
             $assessmentId = $e->indicator->category->assessment_id ?? null;
@@ -127,6 +136,9 @@ class AssessmentController extends Controller
 
             // Skip jika assessment sudah masuk HAS_UPDATE (berbeda konteks)
             if (isset($hasUpdateTmp[$assessmentId])) continue;
+
+            // Jika entry sudah SUBMITTED kembali oleh kecamatan, validasi lama tidak relevan
+            if ($e->status === 'SUBMITTED') continue;
 
             $latestValidation = $e->validations->first();
             if (!$latestValidation) continue;
@@ -193,7 +205,8 @@ class AssessmentController extends Controller
             'needsRevisionSet',
             'hasUpdateSet',
             'blockedSet',
-            'validatorFeedbackSet'
+            'validatorFeedbackSet',
+            'kabupatenApprovals'
         ));
     }
 
@@ -398,6 +411,15 @@ class AssessmentController extends Controller
             }
         }
 
+        // Load catatan penolakan kabupaten jika status NEEDS_REVISION
+        $kabupatenApproval = null;
+        if ($needsRevision) {
+            $kabupatenApproval = KabupatenApproval::where('kecamatan_user_id', $userId)
+                ->where('assessment_id', $id)
+                ->where('status', 'NEEDS_REVISION')
+                ->first(['notes', 'reviewed_at', 'kabupaten_user_id']);
+        }
+
         return view('kecamatan.assessment.show', compact(
             'id',
             'assessment',
@@ -408,7 +430,8 @@ class AssessmentController extends Controller
             'validatorRevisionIndicatorIds',
             'validatorRejectedIndicatorIds',
             'rubric',
-            'rubricByIndicator'
+            'rubricByIndicator',
+            'kabupatenApproval'
         ));
     }
 
@@ -515,12 +538,24 @@ class AssessmentController extends Controller
 
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
             // Ambil indikator yang sudah SUBMITTED/VALIDATED — tidak boleh diubah via draft
-            $lockedIndicatorIds = SelfAssessment::where('submitted_by_id', $userId)
+            // Kecuali: indikator yang ada validasi REJECTED/REVISION_NEEDED dari tim teknis
+            // (sama dengan logika $isLocked di view: $isRevision/$isRejected mengecualikan dari lock)
+            $lockedEntries = SelfAssessment::where('submitted_by_id', $userId)
                 ->where('periode', $assessment->periode)
                 ->whereIn('status', ['SUBMITTED', 'VALIDATED'])
-                ->pluck('indicator_id')
-                ->flip()
-                ->toArray();
+                ->with(['validations' => fn ($q) => $q->orderByDesc('validated_at')->take(1)])
+                ->get(['id', 'indicator_id', 'status']);
+
+            $lockedIndicatorIds = [];
+            foreach ($lockedEntries as $le) {
+                $latestValidation = $le->validations->first();
+                // Jika ada validasi REJECTED atau REVISION_NEEDED, indikator ini TIDAK terkunci
+                // — kecamatan harus bisa mengeditnya
+                if ($latestValidation && in_array($latestValidation->status, ['REJECTED', 'REVISION_NEEDED'], true)) {
+                    continue;
+                }
+                $lockedIndicatorIds[$le->indicator_id] = true;
+            }
 
             foreach ($entries as $indicatorId => $data) {
                 // Lewati indikator yang sudah terkunci
@@ -630,9 +665,13 @@ class AssessmentController extends Controller
         }
 
         // Validasi: semua indikator aktif wajib diisi (description tidak boleh kosong)
-        $validationError = $this->validateAllIndicatorsFilled($assessment, $entries, $userId);
-        if ($validationError) {
-            return back()->with('error', $validationError)->withInput();
+        $validationResult = $this->validateAllIndicatorsFilled($assessment, $entries, $userId);
+        if ($validationResult) {
+            // Simpan dulu jawaban yang sudah diisi sebagai draft agar tidak hilang
+            DB::transaction(fn () => $this->savePartialDraft($assessment, $entries, $userId));
+            return redirect()->route('kecamatan.assessment.show', $id)
+                ->with('error', $validationResult['error'])
+                ->with('missing_indicator_ids', $validationResult['missingIds']);
         }
 
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
@@ -728,13 +767,31 @@ class AssessmentController extends Controller
         }
 
         // Validasi: semua indikator aktif wajib diisi (description tidak boleh kosong)
-        $validationError = $this->validateAllIndicatorsFilled($assessment, $entries, $userId);
-        if ($validationError) {
-            return back()->with('error', $validationError)->withInput();
+        $validationResult = $this->validateAllIndicatorsFilled($assessment, $entries, $userId);
+        if ($validationResult) {
+            // Simpan dulu jawaban yang sudah diisi sebagai draft agar tidak hilang
+            DB::transaction(fn () => $this->savePartialDraft($assessment, $entries, $userId));
+            return redirect()->route('kecamatan.assessment.show', $id)
+                ->with('error', $validationResult['error'])
+                ->with('missing_indicator_ids', $validationResult['missingIds']);
         }
 
         DB::transaction(function () use ($entries, $userId, $assessment, $id) {
+            // Indikator yang sudah VALIDATED tidak boleh ditimpa saat resubmit
+            // (sama seperti perlindungan di submit() — mencegah skor ganda pasca perbaikan)
+            $validatedIndicatorIds = SelfAssessment::where('submitted_by_id', $userId)
+                ->where('periode', $assessment->periode)
+                ->where('status', 'VALIDATED')
+                ->pluck('indicator_id')
+                ->flip()
+                ->toArray();
+
             foreach ($entries as $indicatorId => $data) {
+                // Lewati indikator yang sudah VALIDATED (terkunci permanen)
+                if (isset($validatedIndicatorIds[$indicatorId])) {
+                    continue;
+                }
+
                 $description = $data['description'] ?? '';
                 $score = (int) ($data['score'] ?? 0);
                 $rawDoc = $data['supporting_doc'] ?? null;
@@ -795,9 +852,9 @@ class AssessmentController extends Controller
      * Validasi bahwa semua indikator aktif sudah diisi (description tidak kosong).
      * Indikator yang sudah VALIDATED dan tidak dalam status revisi dikecualikan.
      *
-     * @return string|null Pesan error, atau null jika valid
+     * @return array{error: string, missingIds: array<int>}|null  null jika valid
      */
-    private function validateAllIndicatorsFilled(Assessment $assessment, array $entries, int $userId): ?string
+    private function validateAllIndicatorsFilled(Assessment $assessment, array $entries, int $userId): ?array
     {
         // Kumpulkan semua indicator_id aktif untuk assessment ini
         $activeIndicatorIds = AssessmentIndicator::whereHas('category', fn ($q) =>
@@ -841,6 +898,75 @@ class AssessmentController extends Controller
         }
 
         $count = count($missingIndicators);
-        return "Masih ada {$count} indikator yang belum lengkap. Deskripsi, skor mandiri, dan dokumen pendukung wajib diisi sebelum submit.";
+        return [
+            'error'      => "Masih ada {$count} indikator yang belum lengkap. Deskripsi, skor mandiri, dan dokumen pendukung wajib diisi sebelum submit.",
+            'missingIds' => $missingIndicators,
+        ];
+    }
+
+    /**
+     * Simpan entri dari array $entries sebagai DRAFT ke database.
+     * Digunakan saat submit/update gagal validasi agar jawaban yang sudah diisi tidak hilang.
+     */
+    private function savePartialDraft(Assessment $assessment, array $entries, int $userId): void
+    {
+        // Ambil indikator yang terkunci (SUBMITTED/VALIDATED tanpa revisi) — tidak boleh ditimpa
+        $lockedEntries = SelfAssessment::where('submitted_by_id', $userId)
+            ->where('periode', $assessment->periode)
+            ->whereIn('status', ['SUBMITTED', 'VALIDATED'])
+            ->with(['validations' => fn ($q) => $q->orderByDesc('validated_at')->take(1)])
+            ->get(['id', 'indicator_id', 'status']);
+
+        $lockedIndicatorIds = [];
+        foreach ($lockedEntries as $le) {
+            $latestValidation = $le->validations->first();
+            if ($latestValidation && in_array($latestValidation->status, ['REJECTED', 'REVISION_NEEDED'], true)) {
+                continue;
+            }
+            $lockedIndicatorIds[$le->indicator_id] = true;
+        }
+
+        foreach ($entries as $indicatorId => $data) {
+            if (isset($lockedIndicatorIds[$indicatorId])) {
+                continue;
+            }
+
+            $description = $data['description'] ?? '';
+            $score       = $data['score'] ?? '';
+            $scoreValue  = ($score !== '' && $score !== null) ? (int) $score : null;
+            $rawDoc      = $data['supporting_doc'] ?? '';
+
+            // Jangan simpan GDRIVE_PENDING — URL belum diisi, tidak ada nilainya disimpan
+            $supportingDoc = ($rawDoc !== '' && $rawDoc !== null) ? $rawDoc : null;
+
+            $existing = SelfAssessment::where([
+                'indicator_id'    => $indicatorId,
+                'submitted_by_id' => $userId,
+                'periode'         => $assessment->periode,
+            ])->first();
+
+            if ($existing) {
+                $updateData = ['description' => $description, 'status' => 'DRAFT'];
+                if ($scoreValue !== null) {
+                    $updateData['score'] = $scoreValue;
+                }
+                if ($supportingDoc !== null) {
+                    $updateData['supporting_doc'] = $supportingDoc;
+                }
+                $existing->update($updateData);
+            } else {
+                if ($description !== '' || $scoreValue !== null || $supportingDoc !== null) {
+                    SelfAssessment::create([
+                        'indicator_id'    => $indicatorId,
+                        'submitted_by_id' => $userId,
+                        'periode'         => $assessment->periode,
+                        'description'     => $description,
+                        'score'           => $scoreValue ?? 0,
+                        'supporting_doc'  => $supportingDoc,
+                        'status'          => 'DRAFT',
+                    ]);
+                }
+            }
+        }
     }
 }

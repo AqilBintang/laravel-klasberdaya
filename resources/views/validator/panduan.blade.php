@@ -8,7 +8,7 @@
 
     <div class="space-y-8">
 
-        {{-- ── Heading ──────────────────────────────────────────────────── --}}
+        {{-- Heading --}}
         <div>
             <h2 class="text-2xl font-bold text-gray-900">Panduan Rubrik</h2>
             <p class="mt-1 text-sm text-gray-500">
@@ -17,7 +17,7 @@
         </div>
 
         @if ($rubrics->isEmpty())
-            {{-- ── Empty state ─────────────────────────────────────────── --}}
+            {{-- Empty state --}}
             <div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed
                         border-slate-200 bg-white py-20 text-center">
                 <svg class="w-10 h-10 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -31,7 +31,7 @@
                 <p class="text-xs text-slate-400 mt-1">Hubungi administrator untuk membuat panduan rubrik</p>
             </div>
         @else
-            {{-- ── Rubrik per assessment ─────────────────────────────── --}}
+            {{-- Rubrik per assessment --}}
             @foreach ($rubrics as $rubric)
                 @php
                     // Kelompokkan item per kategori
@@ -54,7 +54,7 @@
 
                 <div class="space-y-4">
 
-                    {{-- ── Header rubrik ──────────────────────────────── --}}
+                    {{-- Header rubrik --}}
                     <div class="rounded-xl bg-sky-600 px-5 py-4 text-white">
                         <div class="flex items-start justify-between gap-4">
                             <div>
@@ -86,7 +86,7 @@
                         @endif
                     </div>
 
-                    {{-- ── Per kategori ────────────────────────────────── --}}
+                    {{-- Per kategori --}}
                     @foreach ($catGroups as $cat)
                         <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
 

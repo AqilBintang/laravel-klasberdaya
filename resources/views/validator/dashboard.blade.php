@@ -9,7 +9,7 @@
 
     <div class="space-y-6">
 
-        {{-- ── Heading ────────────────────────────────────────────────── --}}
+        {{-- Heading --}}
         <div>
             <p class="text-xs text-gray-400">Tim Teknis · {{ now()->year }}</p>
             <h2 class="mt-0.5 text-2xl font-bold text-gray-900">Selamat Datang, {{ $user->name }}</h2>
@@ -18,7 +18,7 @@
             </p>
         </div>
 
-        {{-- ── Stats ──────────────────────────────────────────────────── --}}
+        {{-- Stats --}}
         <div class="grid grid-cols-2 gap-3">
 
             {{-- Menunggu Validasi --}}
@@ -49,7 +49,7 @@
 
         </div>
 
-        {{-- ── CTA: Mulai Validasi ─────────────────────────────────────── --}}
+        {{-- CTA: Mulai Validasi --}}
         <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div class="flex items-start gap-4">
                 <div class="rounded-lg bg-sky-50 p-3 shrink-0">

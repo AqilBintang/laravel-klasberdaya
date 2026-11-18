@@ -175,8 +175,9 @@
 
                                     {{-- Dokumen --}}
                                     <td class="px-3 py-3.5 text-center">
-                                        @if ($entry?->supporting_doc)
-                                            <a href="{{ $entry->supporting_doc }}" target="_blank" rel="noopener noreferrer"
+                                        @php $doc = $entry?->supporting_doc; @endphp
+                                        @if ($doc && $doc !== 'NO_DOC' && $doc !== 'GDRIVE_PENDING')
+                                            <a href="{{ $doc }}" target="_blank" rel="noopener noreferrer"
                                                class="inline-flex items-center gap-1 text-xs text-sky-600 hover:underline whitespace-nowrap">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -184,8 +185,10 @@
                                                 </svg>
                                                 Buka
                                             </a>
+                                        @elseif ($doc === 'NO_DOC')
+                                            <span class="text-gray-400 text-xs italic">Tanpa dok.</span>
                                         @else
-                                            <span class="text-gray-300 text-xs">N/A</span>
+                                            <span class="text-gray-300 text-xs">—</span>
                                         @endif
                                     </td>
                                 </tr>

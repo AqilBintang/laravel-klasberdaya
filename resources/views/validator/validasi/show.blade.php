@@ -76,6 +76,27 @@
                     @endif
                 </div>
             </div>
+
+            {{-- Pesan dari kabupaten/kota --}}
+            @if (!empty($kabupatenApproval?->notes))
+                <div class="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-3">
+                    <svg class="w-4 h-4 mt-0.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+                    </svg>
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold text-amber-700 mb-0.5">
+                            Catatan dari Kabupaten/Kota
+                            @if ($kabupatenApproval->reviewed_at)
+                                <span class="font-normal text-amber-500 ml-1">
+                                    — {{ \Carbon\Carbon::parse($kabupatenApproval->reviewed_at)->translatedFormat('d M Y, H:i') }}
+                                </span>
+                            @endif
+                        </p>
+                        <p class="text-sm text-amber-800">{{ $kabupatenApproval->notes }}</p>
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- ── Daftar Indikator dengan Form Validasi ───────────────────── --}}
@@ -115,6 +136,12 @@
             $categories = $entries->groupBy(fn($e) => $e->indicator?->category_id);
         @endphp
 
+        {{-- ── Form Bulk (satu form melingkupi semua indikator) ───────── --}}
+        <form method="POST"
+              action="{{ route('validator.validasi.storeBulk', $id) }}"
+              id="form-bulk-validasi">
+            @csrf
+
         @foreach ($categories as $catId => $catEntries)
             @php $cat = $catEntries->first()?->indicator?->category; @endphp
             <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -135,6 +162,14 @@
                     @foreach ($catEntries as $entry)
                         @php
                             $validation    = $entry->validations->sortByDesc('validated_at')->first();
+
+                            // Jika entry sudah di-resubmit setelah validasi terakhir (submitted_at > validated_at),
+                            // validasi lama tidak dipakai sebagai default — dropdown kembali ke placeholder.
+                            $isResubmitted = $validation
+                                && $entry->submitted_at
+                                && $entry->submitted_at > $validation->validated_at;
+
+                            // Untuk badge status tampilkan riwayat terakhir apa adanya
                             $currentStatus = $validation?->status ?? 'PENDING';
                             $statusCls = match ($currentStatus) {
                                 'APPROVED'        => 'bg-green-100 text-green-700',
@@ -190,6 +225,45 @@
                                         </div>
                                     @endif
 
+                                    {{-- Bukti pendukung --}}
+                                    @php
+                                        $doc = $entry->supporting_doc;
+                                        $hasUrl = $doc && $doc !== 'NO_DOC' && $doc !== 'GDRIVE_PENDING';
+                                    @endphp
+                                    @if ($hasUrl)
+                                        <div class="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-sky-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                            </svg>
+                                            <span class="text-xs text-sky-700 font-medium">Bukti Pendukung:</span>
+                                            <a href="{{ $doc }}" target="_blank" rel="noopener noreferrer"
+                                               class="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800 hover:underline font-medium truncate max-w-xs">
+                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                </svg>
+                                                Buka Google Drive
+                                            </a>
+                                        </div>
+                                    @elseif ($doc === 'NO_DOC')
+                                        <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-400 italic">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                            </svg>
+                                            Tanpa dokumen pendukung
+                                        </div>
+                                    @else
+                                        <div class="mt-2 flex items-center gap-1.5 text-xs text-amber-500 italic">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                      d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+                                            </svg>
+                                            Dokumen pendukung belum dilampirkan
+                                        </div>
+                                    @endif
+
                                     {{-- Skor yang diberikan kecamatan --}}
                                     <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                                         <span>
@@ -216,11 +290,8 @@
 
                             </div>
 
-                            {{-- ── Form validasi per indikator ─────────────────── --}}
-                            <form method="POST"
-                                  action="{{ route('validator.validasi.store', $entry->id) }}"
-                                  class="mt-4 ml-10">
-                                @csrf
+                            {{-- ── Input validasi per indikator (bagian dari form bulk) ── --}}
+                            <div class="mt-4 ml-10">
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
                                     {{-- Skor validated --}}
@@ -229,7 +300,9 @@
                                                class="block text-xs font-medium text-gray-600 mb-1">
                                             Skor Validator (1–{{ $entry->indicator?->max_score ?? 4 }})
                                         </label>
-                                        <input type="number" id="score_{{ $entry->id }}" name="validated_score"
+                                        <input type="number"
+                                               id="score_{{ $entry->id }}"
+                                               name="entries[{{ $entry->id }}][validated_score]"
                                                value="{{ $validation?->validated_score ?? $entry->score }}"
                                                min="1" max="{{ $entry->indicator?->max_score ?? 4 }}"
                                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
@@ -242,19 +315,25 @@
                                                class="block text-xs font-medium text-gray-600 mb-1">
                                             Keputusan
                                         </label>
-                                        <select id="status_{{ $entry->id }}" name="status"
+                                        <select id="status_{{ $entry->id }}"
+                                                name="entries[{{ $entry->id }}][status]"
                                                 class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                        focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                            <option value=""
+                                                {{ (!$validation || $isResubmitted) ? 'selected' : '' }}
+                                                disabled>
+                                                — Isi Keputusan —
+                                            </option>
                                             <option value="APPROVED"
-                                                {{ ($validation?->status === 'APPROVED') ? 'selected' : '' }}>
+                                                {{ (!$isResubmitted && $validation?->status === 'APPROVED') ? 'selected' : '' }}>
                                                 ✅ Setujui
                                             </option>
                                             <option value="REVISION_NEEDED"
-                                                {{ ($validation?->status === 'REVISION_NEEDED') ? 'selected' : '' }}>
+                                                {{ (!$isResubmitted && $validation?->status === 'REVISION_NEEDED') ? 'selected' : '' }}>
                                                 ⚠️ Perlu Revisi
                                             </option>
                                             <option value="REJECTED"
-                                                {{ ($validation?->status === 'REJECTED') ? 'selected' : '' }}>
+                                                {{ (!$isResubmitted && $validation?->status === 'REJECTED') ? 'selected' : '' }}>
                                                 ❌ Tolak
                                             </option>
                                         </select>
@@ -267,21 +346,25 @@
                                             Catatan (opsional)
                                         </label>
                                         <div class="flex gap-2">
-                                            <input type="text" id="notes_{{ $entry->id }}" name="notes"
+                                            <input type="text"
+                                                   id="notes_{{ $entry->id }}"
+                                                   name="entries[{{ $entry->id }}][notes]"
                                                    value="{{ $validation?->notes }}"
                                                    placeholder="Tulis catatan…"
                                                    class="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm
                                                           focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
-                                            <button type="submit"
-                                                    class="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-xs font-medium
-                                                           text-white hover:bg-sky-700 transition-colors">
+                                            {{-- Simpan satu per satu (submit form individual via JS) --}}
+                                            <button type="button"
+                                                    data-single-submit="{{ $entry->id }}"
+                                                    class="shrink-0 rounded-lg border border-sky-300 bg-white px-4 py-2 text-xs font-medium
+                                                           text-sky-700 hover:bg-sky-50 transition-colors">
                                                 Simpan
                                             </button>
                                         </div>
                                     </div>
 
                                 </div>
-                            </form>
+                            </div>
 
                         </div>
                     @endforeach
@@ -289,6 +372,79 @@
 
             </div>
         @endforeach
+
+        {{-- ── Sticky bar: Simpan Seluruh ─────────────────────────────── --}}
+        <div class="sticky bottom-0 z-10 -mx-1 bg-white border-t border-gray-200 px-5 py-4 shadow-md">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="flex flex-col gap-0.5">
+                    <p class="text-xs text-gray-500 text-center sm:text-left">
+                        Pastikan semua keputusan dan skor sudah diisi sebelum menyimpan seluruh indikator.
+                    </p>
+                    <p id="status-autosave"
+                       class="text-xs text-green-600 font-medium transition-opacity duration-500 opacity-0">
+                    </p>
+                </div>
+                <button type="button" id="btn-bulk-submit"
+                        class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold
+                               text-white hover:bg-sky-700 active:bg-sky-800 transition-colors
+                               disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Simpan Seluruh Indikator
+                </button>
+            </div>
+        </div>
+
+        {{-- ── Modal Konfirmasi Simpan Seluruh ────────────────────────── --}}
+        <div id="modal-bulk-confirm"
+             class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <h2 class="text-base font-semibold text-gray-900">Konfirmasi Simpan Validasi</h2>
+                    <button type="button" id="modal-bulk-close"
+                            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400
+                                   hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                            aria-label="Tutup">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="px-6 py-5 space-y-4">
+                    <div class="rounded-lg bg-sky-50 border border-sky-200 px-4 py-3 text-sm text-sky-700 flex items-start gap-3">
+                        <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+                        </svg>
+                        <div>
+                            <p class="font-medium">Simpan semua validasi sekarang?</p>
+                            <p class="mt-0.5 text-sky-600">
+                                Seluruh keputusan dan skor untuk indikator yang ditampilkan akan disimpan sekaligus.
+                                Pastikan semua sudah terisi dengan benar.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 pt-1">
+                        <button type="button" id="modal-bulk-cancel"
+                                class="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium
+                                       text-gray-600 hover:bg-gray-50 transition-colors">
+                            Batal
+                        </button>
+                        <button type="button" id="modal-bulk-confirm-btn"
+                                class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600
+                                       px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Ya, Simpan Validasi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        </form>{{-- tutup #form-bulk-validasi --}}
+
         @endif
         @endisset
 
@@ -586,6 +742,179 @@
     </script>
 
     @endif
+
+    {{-- ── Script: tombol Simpan per-indikator + konfirmasi bulk ─────── --}}
+    <script>
+    (function () {
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+        var bulkForm  = document.getElementById('form-bulk-validasi');
+        var bulkBtn   = document.getElementById('btn-bulk-submit');
+
+        // ── Tombol "Simpan" per indikator → POST /validator/validasi/{entryId}
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-single-submit]');
+            if (!btn) return;
+
+            var entryId = btn.dataset.singleSubmit;
+            var scoreEl  = document.getElementById('score_' + entryId);
+            var statusEl = document.getElementById('status_' + entryId);
+            var notesEl  = document.getElementById('notes_' + entryId);
+
+            if (!scoreEl || !statusEl) return;
+
+            var body = new FormData();
+            body.append('_token', csrfToken);
+            body.append('validated_score', scoreEl.value);
+            body.append('status', statusEl.value);
+            if (notesEl) body.append('notes', notesEl.value);
+
+            btn.disabled = true;
+            btn.textContent = '…';
+
+            fetch('/validator/validasi/' + entryId, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: body,
+            })
+            .then(function (res) {
+                // Controller redirect → 302; fetch follows, landing on show page → reload
+                if (res.ok || res.redirected) {
+                    window.location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Simpan';
+                    alert('Gagal menyimpan. Coba lagi.');
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.textContent = 'Simpan';
+                alert('Koneksi bermasalah. Coba lagi.');
+            });
+        });
+
+        // ── Tombol "Simpan Seluruh" → modal konfirmasi sebelum submit
+        if (bulkBtn && bulkForm) {
+            var modal       = document.getElementById('modal-bulk-confirm');
+            var modalClose  = document.getElementById('modal-bulk-close');
+            var modalCancel = document.getElementById('modal-bulk-cancel');
+            var modalConfirm = document.getElementById('modal-bulk-confirm-btn');
+
+            function openModal()  { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+            function closeModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+
+            bulkBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                openModal();
+            });
+
+            modalClose?.addEventListener('click', closeModal);
+            modalCancel?.addEventListener('click', closeModal);
+            modal?.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+            modalConfirm?.addEventListener('click', function () {
+                closeModal();
+                // Simpan state terbaru sebelum submit (bukan clear)
+                // agar tersedia kembali jika server mengembalikan error
+                saveNow();
+                bulkBtn.disabled = true;
+                bulkBtn.innerHTML =
+                    '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>' +
+                    ' Menyimpan…';
+                bulkForm.submit();
+            });
+        }
+
+        // ── Auto-save ke localStorage ────────────────────────────────────
+        // Key unik per halaman: validator-autosave-{entryId anchor dari URL}
+        var autoSaveKey = 'validator-autosave-{{ $id }}';
+        var saveTimer   = null;
+        var statusEl    = document.getElementById('status-autosave');
+
+        function getFormState() {
+            var state = {};
+            document.querySelectorAll('[data-single-submit]').forEach(function (btn) {
+                var eid     = btn.dataset.singleSubmit;
+                var scoreEl = document.getElementById('score_'  + eid);
+                var stEl    = document.getElementById('status_' + eid);
+                var notesEl = document.getElementById('notes_'  + eid);
+                state[eid] = {
+                    score:  scoreEl  ? scoreEl.value  : '',
+                    status: stEl     ? stEl.value     : '',
+                    notes:  notesEl  ? notesEl.value  : '',
+                };
+            });
+            return state;
+        }
+
+        function restoreFormState() {
+            try {
+                var saved = localStorage.getItem(autoSaveKey);
+                if (!saved) return;
+                var state = JSON.parse(saved);
+                Object.keys(state).forEach(function (eid) {
+                    var d       = state[eid];
+                    var scoreEl = document.getElementById('score_'  + eid);
+                    var stEl    = document.getElementById('status_' + eid);
+                    var notesEl = document.getElementById('notes_'  + eid);
+                    if (scoreEl && d.score  !== undefined) scoreEl.value = d.score;
+                    if (stEl    && d.status !== undefined) stEl.value    = d.status;
+                    if (notesEl && d.notes  !== undefined) notesEl.value = d.notes;
+                });
+                showStatus('Draft dipulihkan');
+            } catch (e) { /* abaikan jika JSON rusak */ }
+        }
+
+        function saveNow() {
+            try {
+                localStorage.setItem(autoSaveKey, JSON.stringify(getFormState()));
+                showStatus('Draft tersimpan otomatis');
+            } catch (e) {}
+        }
+
+        function clearAutoSave() {
+            localStorage.removeItem(autoSaveKey);
+        }
+
+        function showStatus(msg) {
+            if (!statusEl) return;
+            statusEl.textContent = msg;
+            statusEl.classList.remove('opacity-0');
+            clearTimeout(statusEl._hideTimer);
+            statusEl._hideTimer = setTimeout(function () {
+                statusEl.classList.add('opacity-0');
+            }, 2500);
+        }
+
+        function scheduleAutoSave() {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(saveNow, 800);
+        }
+
+        // Pasang listener pada semua input dalam form bulk
+        if (bulkForm) {
+            bulkForm.addEventListener('input',  scheduleAutoSave);
+            bulkForm.addEventListener('change', scheduleAutoSave);
+        }
+
+        // ── Kapan clear vs restore ───────────────────────────────────────
+        // - Jika halaman dimuat dengan session SUCCESS → submit berhasil → clear
+        // - Jika halaman dimuat dengan session ERROR atau tanpa session → restore
+        @if (session('success'))
+        clearAutoSave(); // submit berhasil, draft tidak diperlukan lagi
+        @else
+        restoreFormState();
+        @endif
+
+        // Clear saat single-save berhasil (sebelum reload)
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-single-submit]');
+            if (btn) clearAutoSave();
+        });
+    })();
+    </script>
     @endpush
 
 </x-layouts.validator>

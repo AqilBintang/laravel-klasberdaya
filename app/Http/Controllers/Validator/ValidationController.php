@@ -237,7 +237,169 @@ class ValidationController extends Controller
             }
         }
 
-        return view('validator.validasi.show', compact('id', 'selfAssessment', 'entries', 'summary', 'rubric', 'rubricByIndicator'));
+        // ── Pesan dari kabupaten/kota saat menyetujui submission ──────────
+        $kabupatenApproval = KabupatenApproval::where('kecamatan_user_id', $selfAssessment->submitted_by_id)
+            ->where('assessment_id', $assessmentId)
+            ->where('periode', $selfAssessment->periode)
+            ->where('status', 'APPROVED')
+            ->latest('reviewed_at')
+            ->first(['notes', 'reviewed_at']);
+
+        return view('validator.validasi.show', compact('id', 'selfAssessment', 'entries', 'summary', 'rubric', 'rubricByIndicator', 'kabupatenApproval'));
+    }
+
+    /**
+     * POST /validator/validasi/{id}/bulk
+     * Simpan validasi untuk seluruh indikator SUBMITTED sekaligus.
+     * $id = id SelfAssessment anchor (representatif) untuk mendapatkan konteks
+     *       (submitted_by_id, periode, assessment_id).
+     *
+     * Request body:
+     *   entries[{selfAssessmentId}][validated_score] int
+     *   entries[{selfAssessmentId}][status]          APPROVED|REJECTED|REVISION_NEEDED
+     *   entries[{selfAssessmentId}][notes]           string|null
+     */
+    public function storeBulk(Request $request, string $id): RedirectResponse
+    {
+        $anchor = SelfAssessment::with('indicator.category.assessment')->findOrFail($id);
+
+        $assessmentId = $anchor->indicator?->category?->assessment_id;
+        $userId       = $anchor->submitted_by_id;
+        $periode      = $anchor->periode;
+
+        // Ambil semua indikator SUBMITTED milik user+assessment+periode ini
+        $pendingEntries = SelfAssessment::where('submitted_by_id', $userId)
+            ->where('periode', $periode)
+            ->where('status', 'SUBMITTED')
+            ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+            ->get()
+            ->keyBy('id');
+
+        if ($pendingEntries->isEmpty()) {
+            return redirect()
+                ->route('validator.validasi.show', $id)
+                ->with('error', 'Tidak ada indikator yang menunggu validasi.');
+        }
+
+        // Validasi input bulk
+        $entries = $request->input('entries', []);
+
+        $validated        = [];
+        $missingDecision  = [];
+        $invalidScore     = [];
+
+        foreach ($pendingEntries as $entryId => $entry) {
+            $data   = $entries[$entryId] ?? [];
+            $score  = $data['validated_score'] ?? null;
+            $status = $data['status'] ?? null;
+
+            if (!in_array($status, ['APPROVED', 'REJECTED', 'REVISION_NEEDED'], true)) {
+                $missingDecision[] = $entry->indicator?->number;
+                continue;
+            }
+
+            $maxScore = $entry->indicator?->max_score ?? 4;
+            $scoreInt = (int) $score;
+
+            if ($score === null || $score === '' || $scoreInt < 1 || $scoreInt > $maxScore) {
+                $invalidScore[] = $entry->indicator?->number;
+                continue;
+            }
+
+            $validated[$entryId] = [
+                'entry'  => $entry,
+                'score'  => $scoreInt,
+                'status' => $status,
+                'notes'  => $data['notes'] ?: null,
+            ];
+        }
+
+        if (!empty($missingDecision) || !empty($invalidScore)) {
+            $messages = [];
+            if (!empty($missingDecision)) {
+                $count = count($missingDecision);
+                $messages[] = "Keputusan belum dipilih untuk {$count} indikator (#" . implode(', #', $missingDecision) . ').';
+            }
+            if (!empty($invalidScore)) {
+                $count = count($invalidScore);
+                $messages[] = "Skor tidak valid untuk {$count} indikator (#" . implode(', #', $invalidScore) . ').';
+            }
+            return redirect()
+                ->route('validator.validasi.show', $id)
+                ->with('error', implode(' ', $messages));
+        }
+
+        // Simpan semua sekaligus dalam satu transaksi
+        DB::transaction(function () use ($validated, $assessmentId, $userId, $periode) {
+            $validatorId = auth()->id();
+            $now         = now();
+
+            foreach ($validated as $data) {
+                $entry     = $data['entry'];
+                $newStatus = match ($data['status']) {
+                    'APPROVED'        => 'VALIDATED',
+                    'REJECTED'        => 'REJECTED',
+                    'REVISION_NEEDED' => 'DRAFT',
+                    default           => 'SUBMITTED',
+                };
+
+                // Simpan record validasi
+                AssessmentValidation::create([
+                    'self_assessment_id' => $entry->id,
+                    'validator_id'       => $validatorId,
+                    'status'             => $data['status'],
+                    'validated_score'    => $data['score'],
+                    'notes'              => $data['notes'],
+                    'validated_at'       => $now,
+                ]);
+
+                // Update status self-assessment
+                $entry->update(['status' => $newStatus]);
+            }
+
+            // Sinkronkan UserAssessmentStatus setelah semua tersimpan
+            // Cek apakah masih ada yang SUBMITTED/DRAFT setelah operasi ini
+            $anyRevision = collect($validated)->contains(
+                fn ($d) => in_array($d['status'], ['REVISION_NEEDED', 'REJECTED'])
+            );
+
+            if ($anyRevision) {
+                UserAssessmentStatus::where('user_id', $userId)
+                    ->where('assessment_id', $assessmentId)
+                    ->update(['status' => 'NEEDS_REVISION', 'last_activity_at' => now()]);
+            } else {
+                // Semua APPROVED — cek apakah masih ada indikator lain yang belum divalidasi
+                $stillPending = SelfAssessment::where('submitted_by_id', $userId)
+                    ->where('periode', $periode)
+                    ->whereIn('status', ['SUBMITTED', 'DRAFT'])
+                    ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                    ->exists();
+
+                if (!$stillPending) {
+                    // Benar-benar semua selesai — cek semua VALIDATED
+                    $allValidated = !SelfAssessment::where('submitted_by_id', $userId)
+                        ->where('periode', $periode)
+                        ->whereHas('indicator', fn ($q) => $q->where('assessment_id', $assessmentId))
+                        ->whereNotIn('status', ['VALIDATED'])
+                        ->exists();
+
+                    if ($allValidated) {
+                        UserAssessmentStatus::where('user_id', $userId)
+                            ->where('assessment_id', $assessmentId)
+                            ->update(['status' => 'VALIDATED', 'last_activity_at' => now()]);
+                    }
+                }
+            }
+        });
+
+        // Generate/update backup snapshot jika semua sudah VALIDATED
+        $this->maybeGenerateBackupSnapshot($anchor);
+
+        $count = count($validated);
+
+        return redirect()
+            ->route('validator.validasi.show', $id)
+            ->with('success', "{$count} indikator berhasil divalidasi sekaligus.");
     }
 
     /**

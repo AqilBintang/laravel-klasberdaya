@@ -245,6 +245,8 @@
                                      text-gray-800 placeholder:text-gray-400
                                      focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100
                                      resize-none"></textarea>
+                    <p id="notes-autosave-status"
+                       class="mt-1 text-xs text-green-600 font-medium transition-opacity duration-500 opacity-0"></p>
                 </div>
 
                 @error('status')
@@ -352,7 +354,6 @@
         var btnConfirm = document.getElementById('modal-confirm');
 
         if (!modal) return; // halaman sudah diputuskan, tidak ada modal
-
         var pendingStatus = null;
 
         var config = {
@@ -437,6 +438,52 @@
         btnConfirm.addEventListener('click', doSubmit);
         modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+        // ── Auto-save catatan ke localStorage ───────────────────────────
+        var autoSaveKey = 'kabupaten-review-notes-{{ $approval->id }}';
+        var notesEl     = document.getElementById('notes');
+        var saveTimer   = null;
+
+        function showSaveStatus(msg) {
+            var el = document.getElementById('notes-autosave-status');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('opacity-0');
+            clearTimeout(el._timer);
+            el._timer = setTimeout(function () { el.classList.add('opacity-0'); }, 2500);
+        }
+
+        function saveNotes() {
+            if (!notesEl) return;
+            try {
+                localStorage.setItem(autoSaveKey, notesEl.value);
+                showSaveStatus('Catatan tersimpan otomatis');
+            } catch (e) {}
+        }
+
+        function clearAutoSave() {
+            localStorage.removeItem(autoSaveKey);
+        }
+
+        // Pulihkan catatan saat halaman dimuat
+        if (notesEl) {
+            try {
+                var saved = localStorage.getItem(autoSaveKey);
+                if (saved !== null) {
+                    notesEl.value = saved;
+                    showSaveStatus('Draft dipulihkan');
+                }
+            } catch (e) {}
+
+            notesEl.addEventListener('input', function () {
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(saveNotes, 800);
+            });
+        }
+
+        // Clear saat submit
+        var originalDoSubmit = doSubmit;
+        doSubmit = function () { clearAutoSave(); originalDoSubmit(); };
     })();
     </script>
     @endpush
