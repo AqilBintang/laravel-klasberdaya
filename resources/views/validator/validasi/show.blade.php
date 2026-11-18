@@ -355,14 +355,30 @@
                                         <label for="score_{{ $entry->id }}"
                                                class="block text-xs font-medium text-gray-600 mb-1">
                                             Skor Validator (1–{{ $entry->indicator?->max_score ?? 4 }})
+                                            <span class="text-red-500" aria-hidden="true">*</span>
                                         </label>
-                                        <input type="number"
-                                               id="score_{{ $entry->id }}"
-                                               name="entries[{{ $entry->id }}][validated_score]"
-                                               value="{{ $validation?->validated_score ?? $entry->score }}"
-                                               min="1" max="{{ $entry->indicator?->max_score ?? 4 }}"
-                                               class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
-                                                      focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                        @php
+                                            $savedValidScore = (!$isResubmitted && $validation?->validated_score !== null)
+                                                ? (int) $validation->validated_score
+                                                : null;
+                                        @endphp
+                                        <select id="score_{{ $entry->id }}"
+                                                name="entries[{{ $entry->id }}][validated_score]"
+                                                required
+                                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm
+                                                       focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                            @if ($savedValidScore === null)
+                                                <option value="" disabled selected>— Pilih Skor —</option>
+                                            @endif
+                                            @for ($s = 1; $s <= ($entry->indicator?->max_score ?? 4); $s++)
+                                                <option value="{{ $s }}" {{ $savedValidScore === $s ? 'selected' : '' }}>
+                                                    {{ $s }}
+                                                </option>
+                                            @endfor
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-400">
+                                            Skor kecamatan: <strong>{{ $entry->score }}</strong>
+                                        </p>
                                     </div>
 
                                     {{-- Keputusan --}}
