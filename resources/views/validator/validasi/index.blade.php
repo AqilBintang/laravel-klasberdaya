@@ -180,6 +180,126 @@
             </div>
         @endif
 
+        {{-- ══════════════════════════════════════════════════════════════
+             SEKSI HISTORY — kecamatan yang sudah pernah divalidasi
+        ══════════════════════════════════════════════════════════════ --}}
+        @if (!empty($historyGroups) && count($historyGroups) > 0)
+        <div class="mt-2">
+            {{-- Toggle header --}}
+            <button type="button" id="btn-toggle-hist-index"
+                    class="w-full flex items-center justify-between rounded-xl border border-gray-200
+                           bg-white px-5 py-4 shadow-sm hover:bg-gray-50 transition-colors text-left">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-green-50 p-2 shrink-0">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2
+                                     M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2
+                                     m-3 3l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 text-sm">
+                            Riwayat Kecamatan Divalidasi
+                            <span class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                                {{ count($historyGroups) }} kecamatan
+                            </span>
+                        </p>
+                        <p class="text-xs text-gray-400 mt-0.5">
+                            Kecamatan yang sudah selesai divalidasi atau sebagian ditolak dan menunggu perbaikan kecamatan
+                        </p>
+                    </div>
+                </div>
+                <svg id="hist-index-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200 shrink-0"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            {{-- List history --}}
+            <div id="hist-index-content" class="hidden mt-3 space-y-3">
+                @foreach ($historyGroups as $h)
+                    @php
+                        if ($h['overallStatus'] === 'FULLY_VALIDATED') {
+                            $hBorder = 'border-green-200';
+                            $hHeaderBg = 'bg-green-50 border-b border-green-100';
+                            $hIconBg = 'bg-green-100';
+                            $hIconColor = 'text-green-600';
+                            $hBadgeCls = 'bg-green-100 text-green-700';
+                            $hBadgeLabel = 'Semua Tervalidasi';
+                        } else {
+                            $hBorder = 'border-orange-200';
+                            $hHeaderBg = 'bg-orange-50 border-b border-orange-100';
+                            $hIconBg = 'bg-orange-100';
+                            $hIconColor = 'text-orange-600';
+                            $hBadgeCls = 'bg-orange-100 text-orange-700';
+                            $hBadgeLabel = 'Sebagian Ditolak / Revisi';
+                        }
+                    @endphp
+                    <div class="rounded-xl border {{ $hBorder }} bg-white shadow-sm overflow-hidden">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 {{ $hHeaderBg }}">
+                            <div class="flex items-center gap-3">
+                                <div class="rounded-lg p-2 {{ $hIconBg }} shrink-0">
+                                    <svg class="w-4 h-4 {{ $hIconColor }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900">{{ $h['kecamatan'] ?? '—' }}</p>
+                                    @if ($h['kabupaten'])
+                                        <p class="text-xs text-gray-500">{{ $h['kabupaten'] }}</p>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                                <span class="inline-flex items-center rounded-full {{ $hBadgeCls }} px-2.5 py-0.5 text-xs font-medium">
+                                    {{ $hBadgeLabel }}
+                                </span>
+
+                                {{-- Progress indikator --}}
+                                <div class="text-xs text-gray-500 text-right">
+                                    <p>{{ $h['assessmentTitle'] }} · Periode {{ $h['periode'] }}</p>
+                                    <p class="mt-0.5">
+                                        <span class="text-green-600 font-medium">{{ $h['totalValidated'] }} tervalidasi</span>
+                                        @if ($h['totalRejected'] > 0)
+                                            · <span class="text-red-600 font-medium">{{ $h['totalRejected'] }} ditolak</span>
+                                        @endif
+                                        @if ($h['totalDraft'] > 0)
+                                            · <span class="text-yellow-600 font-medium">{{ $h['totalDraft'] }} perlu revisi</span>
+                                        @endif
+                                        <span class="text-gray-400">/ {{ $h['totalAll'] }} total</span>
+                                    </p>
+                                </div>
+
+                                <a href="{{ route('validator.validasi.show', $h['representativeId']) }}"
+                                   class="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2
+                                          text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap">
+                                    Lihat Detail
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+
+                        {{-- Progress bar --}}
+                        @php $pctH = $h['totalAll'] > 0 ? round(($h['totalValidated'] / $h['totalAll']) * 100) : 0; @endphp
+                        <div class="px-5 py-2.5 flex items-center gap-3 border-t border-gray-50">
+                            <div class="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full bg-green-500 rounded-full" style="width: {{ $pctH }}%"></div>
+                            </div>
+                            <span class="text-xs text-gray-400 shrink-0">{{ $pctH }}%</span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
     </div>
 
     @push('scripts')
@@ -205,6 +325,25 @@
             searchEl?.addEventListener('input', applyFilters);
             filterEl?.addEventListener('change', applyFilters);
         })();
+    </script>
+
+    <script>
+    (function () {
+        var btn     = document.getElementById('btn-toggle-hist-index');
+        var content = document.getElementById('hist-index-content');
+        var chevron = document.getElementById('hist-index-chevron');
+        if (!btn || !content) return;
+        btn.addEventListener('click', function () {
+            var isOpen = !content.classList.contains('hidden');
+            if (isOpen) {
+                content.classList.add('hidden');
+                chevron?.classList.remove('rotate-180');
+            } else {
+                content.classList.remove('hidden');
+                chevron?.classList.add('rotate-180');
+            }
+        });
+    })();
     </script>
     @endpush
 

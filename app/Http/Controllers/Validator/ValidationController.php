@@ -133,7 +133,81 @@ class ValidationController extends Controller
 
         $totalPending = collect($groups)->sum('pendingCount');
 
-        return view('validator.validasi.index', compact('groups', 'totalPending'));
+        // ── History: kecamatan yang sudah pernah divalidasi ──────────────
+        // Ambil semua self-assessment VALIDATED atau REJECTED (tidak ada lagi yang SUBMITTED)
+        // yang sudah pernah melalui proses validasi tim teknis.
+        $historyEntries = SelfAssessment::whereIn('self_assessments.status', ['VALIDATED', 'REJECTED', 'DRAFT'])
+            ->with([
+                'submittedBy:id,name,kecamatan,kabupaten,kecamatan_id,kabupaten_id',
+                'submittedBy.kecamatanWilayah:id,nama',
+                'submittedBy.kabupatenWilayah:id,nama',
+                'indicator.category.assessment:id,title,periode',
+                'validations' => fn ($q) => $q->orderByDesc('validated_at')->take(1),
+            ])
+            ->join('assessment_indicators as ai', 'ai.id', '=', 'self_assessments.indicator_id')
+            ->join('assessment_categories as ac', 'ac.id', '=', 'ai.category_id')
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('assessment_validations')
+                    ->whereColumn('assessment_validations.self_assessment_id', 'self_assessments.id');
+            })
+            ->select('self_assessments.*')
+            ->get();
+
+        // Group history per (userId, assessmentId, periode) — sama dengan $groups
+        $historyGrouped = $historyEntries->groupBy(function ($s) {
+            $assessmentId = $s->indicator?->category?->assessment?->id;
+            return "{$s->submitted_by_id}:{$assessmentId}:{$s->periode}";
+        });
+
+        // Buang group yang sudah ada di $groups (masih ada SUBMITTED = sudah masuk antrian aktif)
+        $activeKeys = collect($groups)->pluck('key')->flip()->toArray();
+
+        $historyGroups = [];
+        foreach ($historyGrouped as $key => $group) {
+            if (isset($activeKeys[$key])) continue; // sudah ada di antrian aktif
+
+            $first      = $group->first();
+            $assessment = $first->indicator?->category?->assessment;
+            $user       = $first->submittedBy;
+
+            $kecamatan = $user?->kecamatanWilayah?->nama ?? $user?->kecamatan ?? $user?->name;
+            $kabupaten = $user?->kabupatenWilayah?->nama ?? $user?->kabupaten;
+
+            $totalAll       = $group->count();
+            $totalValidated = $group->where('status', 'VALIDATED')->count();
+            $totalRejected  = $group->where('status', 'REJECTED')->count();
+            $totalDraft     = $group->where('status', 'DRAFT')->count();
+
+            // Status keseluruhan group history
+            if ($totalValidated === $totalAll) {
+                $histOverallStatus = 'FULLY_VALIDATED';
+            } elseif ($totalRejected > 0 || $totalDraft > 0) {
+                $histOverallStatus = 'PARTIAL_REJECTED';
+            } else {
+                $histOverallStatus = 'PARTIAL_VALIDATED';
+            }
+
+            $historyGroups[] = [
+                'key'               => $key,
+                'userId'            => $first->submitted_by_id,
+                'representativeId'  => $first->id,
+                'kecamatan'         => $kecamatan,
+                'kabupaten'         => $kabupaten,
+                'assessmentId'      => $assessment?->id,
+                'assessmentTitle'   => $assessment?->title ?? '—',
+                'periode'           => $first->periode,
+                'totalAll'          => $totalAll,
+                'totalValidated'    => $totalValidated,
+                'totalRejected'     => $totalRejected,
+                'totalDraft'        => $totalDraft,
+                'overallStatus'     => $histOverallStatus,
+            ];
+        }
+
+        usort($historyGroups, fn ($a, $b) => strcmp($a['kecamatan'] ?? '', $b['kecamatan'] ?? ''));
+
+        return view('validator.validasi.index', compact('groups', 'totalPending', 'historyGroups'));
     }
 
     /**
